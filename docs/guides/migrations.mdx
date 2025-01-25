@@ -5,6 +5,57 @@ description: How to migrate between major versions of Melos.
 
 # Migrations
 
+## 6.x.x to 7.x.x
+
+Since the [pub workspaces](https://dart.dev/tools/pub/workspaces) feature has
+been released, Melos has been updated to rely on that, instead of creating
+`pubspec_overrides.yaml` files and thus some migration is needed.
+
+The main difference is that:
+1. There is no longer a `melos.yaml` file, only the root `pubspec.yaml`
+2. You now have to add `resolution: workspace` to all of your packages'
+   `pubspec.yaml` files.
+3. You now have to add a list of all your packages to the root `pubspec.yaml`
+   file.
+
+After the migration your root `pubspec.yaml` file would now look something like this:
+```yaml
+name: my_workspace
+publish_to: none
+environment:
+  sdk: ^3.6.0
+workspace:
+  - packages/helper
+  - packages/client_package
+  - packages/server_package
+dev_dependencies:
+  melos: ^7.0.0
+
+melos:
+  # All of the content of your previous melos.yaml file
+  # (Except for the packages and name)
+```
+
+
+And this is what the `pubspec.yaml` file of a package would look like:
+```yaml
+name: my_package
+environment:
+  sdk: ^3.6.0
+resolution: workspace
+```
+
+> [!NOTE]
+> You have to use Dart SDK 3.6.0 or newer to use pub workspaces.
+
+## 3.0.0 to 4.0.0
+
+### `--no-git-tag-version` behavior change
+
+If you were previously using `--no-git-tag-version` and were relying on that it
+didn't create a commit you now have to also pass `--no-git-commit-version` to
+prevent a commit from being automatically created after versioning.
+
 ## 2.0.0 to 3.0.0
 
 ### Versioning of Melos in workspaces
@@ -24,10 +75,10 @@ If you don't have a `pubspec.yaml` file at the workspace root yet, create one
 now:
 
 ```yaml
-name: <project>_workspace
+name: my_project_workspace
 
 environment:
-  sdk: '>=2.18.0 <3.0.0'
+  sdk: '>=3.0.0 <4.0.0'
 ```
 
 The corresponding `pubspec.lock` file should also be committed. Make sure to

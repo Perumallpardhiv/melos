@@ -77,7 +77,9 @@ void main() {
 
   group('startProcess', () {
     test('runs command chain in single shell', () async {
-      final workspaceDir = await createTemporaryWorkspace();
+      final workspaceDir = await createTemporaryWorkspace(
+        workspacePackages: [],
+      );
       final testDir = p.join(workspaceDir.path, 'test');
 
       ensureDir(testDir);
@@ -94,9 +96,10 @@ void main() {
         workingDirectory: workspaceDir.path,
       );
 
+      final prefix = Platform.isMacOS ? '/private' : '';
       expect(
         logger.output.normalizeNewLines(),
-        ignoringAnsii('$testDir\n'),
+        ignoringAnsii('$prefix$testDir\n'),
       );
     });
   });

@@ -1,25 +1,10 @@
-/*
- * Copyright (c) 2020-present Invertase Limited & Contributors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this library except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
- */
-
 import 'dart:async';
 
 import 'package:meta/meta.dart';
 import 'package:path/path.dart' as p;
 
+import 'command_configs/command_configs.dart';
+import 'common/environment_variable_key.dart';
 import 'common/intellij_project.dart';
 import 'common/io.dart';
 import 'common/platform.dart';
@@ -28,7 +13,7 @@ import 'common/validation.dart';
 import 'global_options.dart';
 import 'logging.dart';
 import 'package.dart';
-import 'workspace_configs.dart';
+import 'workspace_config.dart';
 
 class IdeWorkspace {
   IdeWorkspace._(this._workspace);
@@ -39,8 +24,9 @@ class IdeWorkspace {
       IntellijProject.fromWorkspace(_workspace);
 }
 
-/// A representation of a workspace. This includes it's packages, configuration
-/// such as scripts and more.
+/// A representation of a workspace.
+///
+/// This includes its packages, configuration such as scripts and more.
 class MelosWorkspace {
   MelosWorkspace({
     required this.name,
@@ -48,6 +34,7 @@ class MelosWorkspace {
     required this.config,
     required this.allPackages,
     required this.filteredPackages,
+    required this.rootPackage,
     required this.dependencyOverridePackages,
     required this.sdkPath,
     required this.logger,
@@ -64,12 +51,18 @@ class MelosWorkspace {
       workspacePath: workspaceConfig.path,
       packages: workspaceConfig.packages,
       ignore: workspaceConfig.ignore,
+      categories: workspaceConfig.categories,
       logger: logger,
     );
     final dependencyOverridePackages = await PackageMap.resolvePackages(
       workspacePath: workspaceConfig.path,
       packages: workspaceConfig.commands.bootstrap.dependencyOverridePaths,
       ignore: const [],
+      categories: const {},
+      logger: logger,
+    );
+    final rootPackage = await PackageMap.resolveRootPackage(
+      workspacePath: workspaceConfig.path,
       logger: logger,
     );
 
@@ -81,11 +74,13 @@ class MelosWorkspace {
       config: workspaceConfig,
       allPackages: allPackages,
       logger: logger,
+      rootPackage: rootPackage,
       filteredPackages: filteredPackages,
       dependencyOverridePackages: dependencyOverridePackages,
       sdkPath: resolveSdkPath(
         configSdkPath: workspaceConfig.sdkPath,
-        envSdkPath: currentPlatform.environment[utils.envKeyMelosSdkPath],
+        envSdkPath:
+            currentPlatform.environment[EnvironmentVariableKey.melosSdkPath],
         commandSdkPath: global?.sdkPath,
         workspacePath: workspaceConfig.path,
       ),
@@ -94,15 +89,18 @@ class MelosWorkspace {
 
   final MelosLogger logger;
 
-  /// An optional name as defined in "melos.yaml". This name is used for logging
+  /// The name defined in the root "pubspec.yaml". This name is used for logging
   /// purposes and also used when generating certain IDE files.
   final String name;
 
   /// Full file path to the location of this workspace.
   final String path;
 
-  /// Configuration as defined in the "melos.yaml" file if it exists.
+  /// Configuration as defined in the "pubspec.yaml" file.
   final MelosWorkspaceConfig config;
+
+  /// The root package of this workspace.
+  final Package rootPackage;
 
   /// All packages managed in this Melos workspace.
   ///
@@ -130,8 +128,9 @@ class MelosWorkspace {
 
   /// Returns the path to a [tool] from the Dart/Flutter SDK.
   ///
-  /// If no [sdkPath] is specified, this will return the name of the tool as is
-  /// so that it can be used as an executable from PATH.
+  /// If no [sdkPath] is specified, this will return the name of the tool
+  /// as is so that it can be used as an executable from
+  /// [EnvironmentVariableKey.path].
   String sdkTool(String tool) {
     final sdkPath = this.sdkPath;
     if (sdkPath != null) {
@@ -140,15 +139,17 @@ class MelosWorkspace {
     return tool;
   }
 
-  /// PATH environment variable for child processes launched in this workspace.
+  /// [EnvironmentVariableKey.path] environment variable for child processes
+  /// launched in this workspace.
   ///
-  /// Is `null` if the PATH for child processes is the same as the PATH for the
-  /// current process.
+  /// Is `null` if the [EnvironmentVariableKey.path] for child processes is the
+  /// same as the [EnvironmentVariableKey.path] for the current process.
   late final String? childProcessPath = sdkPath == null
       ? null
       : utils.addToPathEnvVar(
           directory: p.join(sdkPath!, 'bin'),
-          currentPath: currentPlatform.environment['PATH']!,
+          currentPath:
+              currentPlatform.environment[EnvironmentVariableKey.path]!,
           // We prepend the path to the bin directory in the Dart/Flutter SDK
           // because we want to shadow any system wide SDK.
           prepend: true,
@@ -180,9 +181,10 @@ class MelosWorkspace {
   /// Execute a command in the root of this workspace.
   Future<int> exec(List<String> execArgs, {bool onlyOutputOnError = false}) {
     final environment = {
-      'MELOS_ROOT_PATH': path,
-      if (sdkPath != null) utils.envKeyMelosSdkPath: sdkPath!,
-      if (childProcessPath != null) 'PATH': childProcessPath!,
+      EnvironmentVariableKey.melosRootPath: path,
+      if (sdkPath != null) EnvironmentVariableKey.melosSdkPath: sdkPath!,
+      if (childProcessPath != null)
+        EnvironmentVariableKey.path: childProcessPath!,
     };
 
     return utils.startCommand(

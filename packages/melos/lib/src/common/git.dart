@@ -1,20 +1,3 @@
-/*
- * Copyright (c) 2016-present Invertase Limited & Contributors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this library except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
- */
-
 import 'dart:convert';
 import 'dart:io';
 
@@ -99,9 +82,9 @@ Future<ProcessResult> gitExecuteCommand({
 /// Optionally specify [tagReleaseType] to specify [TagReleaseType].
 Future<List<String>> gitTagsForPackage(
   Package package, {
+  required MelosLogger logger,
   TagReleaseType tagReleaseType = TagReleaseType.all,
   String preid = 'dev',
-  required MelosLogger logger,
 }) async {
   final filterPattern =
       gitTagFilterPattern(package.name, tagReleaseType, preid: preid);
@@ -147,8 +130,8 @@ Future<bool> gitTagCreate(
   String tag,
   String message, {
   required String workingDirectory,
-  String? commitId,
   required MelosLogger logger,
+  String? commitId,
 }) async {
   if (await gitTagExists(
     tag,
@@ -188,11 +171,13 @@ Future<bool> gitTagCreate(
 ///       are requested.
 Future<String?> gitLatestTagForPackage(
   Package package, {
-  String preid = 'dev',
   required MelosLogger logger,
+  String preid = 'dev',
 }) async {
   // Package doesn't have a version, skip.
-  if (package.version.toString() == '0.0.0') return null;
+  if (package.version.toString() == '0.0.0') {
+    return null;
+  }
 
   final currentVersionTag =
       gitTagForPackageVersion(package.name, package.version.toString());
@@ -219,7 +204,9 @@ Future<String?> gitLatestTagForPackage(
     preid: preid,
     logger: logger,
   );
-  if (tags.isEmpty) return null;
+  if (tags.isEmpty) {
+    return null;
+  }
 
   return tags.first;
 }
@@ -229,7 +216,7 @@ Future<void> gitFetchTags({
   required MelosLogger logger,
 }) async {
   await gitExecuteCommand(
-    arguments: ['fetch', '--tags'],
+    arguments: ['pull', '--tags'],
     workingDirectory: workingDirectory,
     logger: logger,
   );
@@ -273,26 +260,11 @@ final _gitVersionRangeShortHandRegExp = RegExp(r'^.+\.{2,3}.+$');
 /// Diff also supports specifying a range of commits, e.g. `HEAD~5..HEAD`.
 Future<List<GitCommit>> gitCommitsForPackage(
   Package package, {
-  String? diff,
   required MelosLogger logger,
+  String? diff,
 }) async {
-  var revisionRange = diff?.trim();
-  if (revisionRange != null) {
-    if (revisionRange.isEmpty) {
-      revisionRange = null;
-    } else if (!_gitVersionRangeShortHandRegExp.hasMatch(revisionRange)) {
-      // If the revision range is not a valid revision range short hand then we
-      // assume it's a commit or tag and default to the range from that
-      // commit/tag to HEAD.
-      revisionRange = '$revisionRange...HEAD';
-    }
-  }
-
-  if (revisionRange == null) {
-    final latestTag = await gitLatestTagForPackage(package, logger: logger);
-    // If no latest tag is found then we default to the entire git history.
-    revisionRange = latestTag != null ? '$latestTag...HEAD' : 'HEAD';
-  }
+  final revisionRange =
+      await _resolveRevisionRange(package, diff: diff, logger: logger);
 
   logger.trace(
     '[GIT] Getting commits for package ${package.name} for revision range '
@@ -328,6 +300,34 @@ Future<List<GitCommit>> gitCommitsForPackage(
   }).toList();
 }
 
+Future<bool> gitHasDiffInPackage(
+  Package package, {
+  required String? diff,
+  required MelosLogger logger,
+}) async {
+  final revisionRange =
+      await _resolveRevisionRange(package, diff: diff, logger: logger);
+
+  logger.trace(
+    '[GIT] Getting $diff diff for package ${package.name}.',
+  );
+
+  final processResult = await gitExecuteCommand(
+    arguments: [
+      '--no-pager',
+      'diff',
+      '--name-status',
+      revisionRange,
+      '--',
+      '.',
+    ],
+    workingDirectory: package.path,
+    logger: logger,
+  );
+
+  return (processResult.stdout as String).isNotEmpty;
+}
+
 /// Returns the current branch name of the local git repository.
 Future<String> gitGetCurrentBranchName({
   required String workingDirectory,
@@ -355,13 +355,13 @@ Future<void> gitRemoteUpdate({
   );
 }
 
-/// Determine if the local git repository is behind on commits from it's remote
+/// Determine if the local git repository is behind on commits from its remote
 /// branch.
 Future<bool> gitIsBehindUpstream({
   required String workingDirectory,
+  required MelosLogger logger,
   String remote = 'origin',
   String? branch,
-  required MelosLogger logger,
 }) async {
   await gitRemoteUpdate(workingDirectory: workingDirectory, logger: logger);
 
@@ -395,4 +395,32 @@ Future<bool> gitIsBehindUpstream({
   );
 
   return isBehind;
+}
+
+Future<String> _resolveRevisionRange(
+  Package package, {
+  required String? diff,
+  required MelosLogger logger,
+}) async {
+  var revisionRange = diff?.trim();
+  if (revisionRange != null) {
+    if (revisionRange.isEmpty) {
+      revisionRange = null;
+    } else if (_gitVersionRangeShortHandRegExp.hasMatch(revisionRange)) {
+      return revisionRange;
+    } else {
+      // If the revision range is not a valid revision range short hand then we
+      // assume it's a commit or tag and default to the range from that
+      // commit/tag to HEAD.
+      return '$revisionRange...HEAD';
+    }
+  }
+
+  if (revisionRange == null) {
+    final latestTag = await gitLatestTagForPackage(package, logger: logger);
+    // If no latest tag is found then we default to the entire git history.
+    return latestTag != null ? '$latestTag...HEAD' : 'HEAD';
+  }
+
+  return 'HEAD';
 }

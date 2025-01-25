@@ -10,7 +10,7 @@ mixin _CleanMixin on _Melos {
 
     return _runLifecycle(
       workspace,
-      _CommandWithLifecycle.clean,
+      CommandWithLifecycle.clean,
       () async {
         logger.log('Cleaning workspace...');
 
@@ -32,24 +32,13 @@ mixin _CleanMixin on _Melos {
     final pathsToClean = [
       ...cleanablePubFilePaths,
       '.dart_tool',
-    ];
+    ].map((relativePath) => p.join(package.path, relativePath));
 
-    for (final generatedPubFilePath in pathsToClean) {
-      deleteEntry(p.join(package.path, generatedPubFilePath));
-    }
-
-    // Remove any Melos generated dependency overrides from
-    // `pubspec_overrides.yaml`.
-    final pubspecOverridesFile = p.join(package.path, 'pubspec_overrides.yaml');
-    if (fileExists(pubspecOverridesFile)) {
-      final contents = await readTextFileAsync(pubspecOverridesFile);
-      final updatedContents = mergeMelosPubspecOverrides({}, contents);
-      if (updatedContents != null) {
-        if (updatedContents.isEmpty) {
-          deleteEntry(pubspecOverridesFile);
-        } else {
-          await writeTextFileAsync(pubspecOverridesFile, updatedContents);
-        }
+    for (final path in pathsToClean) {
+      try {
+        deleteEntry(path);
+      } catch (error) {
+        logger.warning('Failed to delete $path: $error');
       }
     }
   }

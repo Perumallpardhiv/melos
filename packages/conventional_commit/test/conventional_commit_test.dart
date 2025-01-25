@@ -1,21 +1,3 @@
-/*
- * Copyright (c) 2016-present Invertase Limited & Contributors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this library except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
- */
-
-import 'package:collection/collection.dart';
 import 'package:conventional_commit/conventional_commit.dart';
 import 'package:test/test.dart';
 
@@ -53,6 +35,12 @@ const commitMessageStarScope = '''
 feat(*): a new something (#1234)
 
 This also fixes an issue something else.
+''';
+
+const commitMessageHyphenScope = '''
+feat(remote-config)!: add support for onConfigUpdated (#10647)
+
+This PR is a breaking change for Remote Config since we're removing the ChangeNotifier mixin that came with FirebaseRemoteConfig. You should handle the state of the RemoteConfig using your own state provider.
 ''';
 
 void main() {
@@ -119,6 +107,27 @@ void main() {
       expect(commit.body, equals('This also fixes an issue something else.'));
       expect(commit.type, equals('feat'));
       expect(commit.scopes, equals(['*']));
+    });
+
+    test('correctly handles messages with a scope that contains "-"', () {
+      final commit = ConventionalCommit.tryParse(commitMessageHyphenScope);
+      expect(commit, isNotNull);
+      expect(
+        commit!.description,
+        equals('add support for onConfigUpdated (#10647)'),
+      );
+      expect(
+        commit.body,
+        equals(
+          "This PR is a breaking change for Remote Config since we're removing "
+          'the ChangeNotifier mixin that came with FirebaseRemoteConfig. You '
+          'should handle the state of the RemoteConfig using your own state '
+          'provider.',
+        ),
+      );
+      expect(commit.type, equals('feat'));
+      expect(commit.isBreakingChange, equals(true));
+      expect(commit.scopes, equals(['remote-config']));
     });
 
     test('header', () {
@@ -403,9 +412,9 @@ void main() {
       );
       // Footers should exclude the breaking change footer.
       expect(
-        commitWithBodyParsed.footers.firstWhereOrNull(
-          (element) => element.contains('BREAKING'),
-        ),
+        commitWithBodyParsed.footers
+            .where((element) => element.contains('BREAKING'))
+            .firstOrNull,
         isNull,
       );
       expect(
@@ -422,9 +431,9 @@ void main() {
           ConventionalCommit.tryParse(commitMessageWithoutBodyExample)!;
       // Header should not leak into footers.
       expect(
-        commitWithoutBodyParsed.footers.firstWhereOrNull(
-          (element) => element.contains('refactor: did something'),
-        ),
+        commitWithoutBodyParsed.footers
+            .where((element) => element.contains('refactor: did something'))
+            .firstOrNull,
         isNull,
       );
       expect(

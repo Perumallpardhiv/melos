@@ -3,41 +3,52 @@ description:
   A tool for managing Dart & Flutter repositories with multiple packages
   (monorepo). Supports automated versioning via Conventional Commits. Inspired
   by JavaScripts Lerna package.
-version: 3.0.0
+version: 7.0.0-dev.5
 homepage: https://melos.invertase.dev/~melos-latest
 repository: https://github.com/invertase/melos/tree/main/packages/melos
 issue_tracker: https://github.com/invertase/melos/issues
+resolution: workspace
+
+topics:
+  - tool
+  - repository-management
+  - cli
+  - monorepo
+  - lerna
 
 environment:
-  sdk: '>=2.18.0 <3.0.0'
+  sdk: ^3.6.0
 
 executables:
   melos:
 
 dependencies:
-  ansi_styles: ^0.3.1
-  args: ^2.0.0
-  cli_launcher: ^0.3.0
-  cli_util: ^0.3.0
-  collection: ^1.14.12
-  conventional_commit: ^0.6.0
-  file: ^6.1.0
-  glob: ^2.1.0
-  graphs: ^2.1.0
-  http: ^0.13.1
-  meta: ^1.1.8
+  ansi_styles: ^0.3.2+1
+  args: ^2.6.0
+  async: ^2.11.0
+  cli_launcher: ^0.3.1
+  cli_util: ^0.4.2
+  collection: any
+  conventional_commit: ^0.6.0+1
+  file: ^7.0.0
+  glob: ^2.1.2
+  graphs: ^2.3.2
+  http: ^1.2.2
+  intl: any
+  meta: any
   mustache_template: ^2.0.0
-  path: ^1.7.0
-  platform: ^3.1.0
-  pool: ^1.4.0
+  path: any
+  platform: ^3.1.5
+  pool: ^1.5.1
   prompts: ^2.0.0
-  pub_semver: ^2.0.0
-  pub_updater: ^0.2.2
-  pubspec: ^2.1.0
-  string_scanner: ^1.0.5
-  yaml: ^3.1.0
-  yaml_edit: ^2.0.2
+  pub_semver: ^2.1.5
+  pub_updater: ^0.5.0
+  pubspec_parse: ^1.5.0
+  string_scanner: ^1.3.0
+  yaml: ^3.1.3
+  yaml_edit: ^2.2.2
 
 dev_dependencies:
-  mockito: ^5.1.0
-  test: ^1.17.5
+  flame_lint: ^1.2.1
+  mockito: ^5.4.5
+  test: any

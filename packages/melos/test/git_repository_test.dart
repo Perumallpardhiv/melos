@@ -1,20 +1,3 @@
-/*
- * Copyright (c) 2016-present Invertase Limited & Contributors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this library except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
- */
-
 import 'package:melos/src/common/git_repository.dart';
 import 'package:test/test.dart';
 
@@ -225,6 +208,246 @@ void main() {
     });
   });
 
+  group('BitBucketRepository', () {
+    group('fromUrl', () {
+      test('parse Bitbucket repository URL correctly', () {
+        final url = Uri.parse('https://bitbucket.org/a/b');
+        final repo = BitbucketRepository.fromUrl(url);
+
+        expect(repo.origin, 'https://bitbucket.org');
+        expect(repo.owner, 'a');
+        expect(repo.name, 'b');
+        expect(repo.url, Uri.parse('https://bitbucket.org/a/b/'));
+      });
+
+      test('throws if URL is not a valid GitLab repository URL', () {
+        void expectBadUrl(String url) {
+          final uri = Uri.parse(url);
+          expect(
+            () => BitbucketRepository.fromUrl(uri),
+            throwsFormatException,
+            reason: url,
+          );
+        }
+
+        const [
+          '',
+          'http://bitbucket.org/a/b',
+          'https://gitlab.com/a/b',
+          'https://github.com/a/b',
+          'https://bitbucket.org/a',
+          'https://bitbucket.org/',
+          'https://bitbucket.org',
+        ].forEach(expectBadUrl);
+      });
+    });
+
+    group('fromSpec', () {
+      test('parse Bitbucket repository spec correctly', () {
+        final repo = BitbucketRepository(
+          origin: 'https://bitbucket.invertase.dev',
+          owner: 'a',
+          name: 'b',
+        );
+
+        expect(repo.origin, 'https://bitbucket.invertase.dev');
+        expect(repo.owner, 'a');
+        expect(repo.name, 'b');
+        expect(repo.url, Uri.parse('https://bitbucket.invertase.dev/a/b/'));
+      });
+
+      test('parse Bitbucket repository spec with nested groups correctly', () {
+        final repo = BitbucketRepository(
+          origin: 'https://bitbucket.invertase.dev',
+          owner: 'a/b',
+          name: 'c',
+        );
+
+        expect(repo.origin, 'https://bitbucket.invertase.dev');
+        expect(repo.owner, 'a/b');
+        expect(repo.name, 'c');
+        expect(repo.url, Uri.parse('https://bitbucket.invertase.dev/a/b/c/'));
+      });
+
+      test(
+          'parse Bitbucket repository spec with sub-path and nested groups '
+          'correctly', () {
+        final repo = BitbucketRepository(
+          origin: 'https://invertase.dev/bitbucket',
+          owner: 'a/b',
+          name: 'c',
+        );
+
+        expect(repo.origin, 'https://invertase.dev/bitbucket');
+        expect(repo.owner, 'a/b');
+        expect(repo.name, 'c');
+        expect(repo.url, Uri.parse('https://invertase.dev/bitbucket/a/b/c/'));
+      });
+    });
+
+    test('commitUrl returns correct URL', () {
+      final repo = BitbucketRepository(owner: 'a', name: 'b');
+      const commitId = 'b2841394a48cd7d84a4966a788842690e543b2ef';
+
+      expect(
+        repo.commitUrl(commitId),
+        Uri.parse(
+          'https://bitbucket.org/a/b/commits/b2841394a48cd7d84a4966a788842690e543b2ef',
+        ),
+      );
+    });
+
+    test('issueUrl returns empty URL', () {
+      final repo = BitbucketRepository(owner: 'a', name: 'b');
+      const issueId = '123';
+
+      expect(
+        repo.issueUrl(issueId),
+        Uri(),
+      );
+    });
+  });
+
+  group('AzureDevOpsRepository', () {
+    group('fromUrl', () {
+      test('parse Azure DevOps repository URL correctly', () {
+        final url = Uri.parse('https://dev.azure.com/a/b/_git/c');
+        final repo = AzureDevOpsRepository.fromUrl(url);
+
+        expect(repo.origin, 'https://dev.azure.com/a');
+        expect(repo.owner, 'b');
+        expect(repo.name, 'c');
+        expect(repo.url, Uri.parse('https://dev.azure.com/a/b/_git/c/'));
+      });
+
+      test('parse Azure DevOps (old URL format) repository URL correctly', () {
+        final url = Uri.parse('https://a.visualstudio.com/b/_git/c');
+        final repo = AzureDevOpsRepository.fromUrl(url);
+
+        expect(repo.origin, 'https://a.visualstudio.com');
+        expect(repo.owner, 'b');
+        expect(repo.name, 'c');
+        expect(repo.url, Uri.parse('https://a.visualstudio.com/b/_git/c/'));
+      });
+
+      test('parse Azure DevOps Server repository URL correctly', () {
+        final url = Uri.parse('https://a.visualstudio.com/b/_git/c');
+        final repo = AzureDevOpsRepository.fromUrl(url);
+
+        expect(repo.origin, 'https://a.visualstudio.com');
+        expect(repo.owner, 'b');
+        expect(repo.name, 'c');
+        expect(repo.url, Uri.parse('https://a.visualstudio.com/b/_git/c/'));
+      });
+
+      test('throws if URL is not a valid Azure DevOps repository URL', () {
+        void expectBadUrl(String url) {
+          final uri = Uri.parse(url);
+          expect(
+            () => AzureDevOpsRepository.fromUrl(uri),
+            throwsFormatException,
+            reason: url,
+          );
+        }
+
+        const [
+          '',
+          'http://dev.azure.com/a/b/_git/c',
+          'https://www.visualstudio.com/b/c',
+          'https://gitlab.com/a/b',
+          'https://github.com/a/b',
+          'https://dev.azure.com/a',
+          'https://dev.azure.com/',
+          'https://dev.azure.com',
+        ].forEach(expectBadUrl);
+      });
+    });
+
+    group('fromSpec', () {
+      test('parse Azure DevOps repository spec correctly', () {
+        final repo = AzureDevOpsRepository(
+          origin: 'https://dev.azure.com/a',
+          owner: 'b',
+          name: 'c',
+        );
+
+        expect(repo.origin, 'https://dev.azure.com/a');
+        expect(repo.owner, 'b');
+        expect(repo.name, 'c');
+        expect(repo.url, Uri.parse('https://dev.azure.com/a/b/_git/c/'));
+      });
+
+      test('parse Azure DevOps (old URL format) repository spec correctly', () {
+        final repo = AzureDevOpsRepository(
+          origin: 'https://a.visualstudio.com/',
+          owner: 'b',
+          name: 'c',
+        );
+
+        expect(repo.origin, 'https://a.visualstudio.com');
+        expect(repo.owner, 'b');
+        expect(repo.name, 'c');
+        expect(repo.url, Uri.parse('https://a.visualstudio.com/b/_git/c/'));
+      });
+    });
+
+    test('commitUrl returns correct URL', () {
+      final repo = AzureDevOpsRepository(
+        origin: 'https://dev.azure.com/a',
+        owner: 'b',
+        name: 'c',
+      );
+      const commitId = 'b6849381';
+
+      expect(
+        repo.commitUrl(commitId),
+        Uri.parse('https://dev.azure.com/a/b/_git/c/commit/b6849381'),
+      );
+    });
+
+    test('commitUrl returns correct URL (old format)', () {
+      final repo = AzureDevOpsRepository(
+        origin: 'https://a.visualstudio.com',
+        owner: 'b',
+        name: 'c',
+      );
+      const commitId = 'b6849381';
+
+      expect(
+        repo.commitUrl(commitId),
+        Uri.parse('https://a.visualstudio.com/b/_git/c/commit/b6849381'),
+      );
+    });
+
+    test('issueUrl returns correct URL', () {
+      final repo = AzureDevOpsRepository(
+        origin: 'https://dev.azure.com/a',
+        owner: 'b',
+        name: 'c',
+      );
+      const issueId = '123';
+
+      expect(
+        repo.issueUrl(issueId),
+        Uri.parse('https://dev.azure.com/a/b/_workitems/edit/123'),
+      );
+    });
+
+    test('issueUrl returns correct URL (old format)', () {
+      final repo = AzureDevOpsRepository(
+        origin: 'https://a.visualstudio.com',
+        owner: 'b',
+        name: 'c',
+      );
+      const issueId = '123';
+
+      expect(
+        repo.issueUrl(issueId),
+        Uri.parse('https://a.visualstudio.com/b/_workitems/edit/123'),
+      );
+    });
+  });
+
   group('parseHostedGitRepositoryUrl', () {
     test('parses GitHub repository URL', () {
       final repo =
@@ -236,6 +459,20 @@ void main() {
       final repo =
           parseHostedGitRepositoryUrl(Uri.parse('https://gitlab.com/a/b'));
       expect(repo, isA<GitLabRepository>());
+    });
+
+    test('parses Azure DevOps repository URL', () {
+      final repo = parseHostedGitRepositoryUrl(
+        Uri.parse('https://dev.azure.com/a/b/_git/c'),
+      );
+      expect(repo, isA<AzureDevOpsRepository>());
+    });
+
+    test('parses Azure DevOps repository URL (old format)', () {
+      final repo = parseHostedGitRepositoryUrl(
+        Uri.parse('https://a.visualstudio.com/b/_git/c'),
+      );
+      expect(repo, isA<AzureDevOpsRepository>());
     });
 
     test('throws if URL cannot be parsed as URL to one of known hosts', () {
@@ -267,6 +504,28 @@ void main() {
       );
 
       expect(repo, isA<GitLabRepository>());
+    });
+
+    test('parses Azure DevOps repository spec', () {
+      final repo = parseHostedGitRepositorySpec(
+        'azuredevops',
+        'https://dev.azure.com/a',
+        'b',
+        'c',
+      );
+
+      expect(repo, isA<AzureDevOpsRepository>());
+    });
+
+    test('parses Azure DevOps repository spec (old URL format)', () {
+      final repo = parseHostedGitRepositorySpec(
+        'azuredevops',
+        'https://a.visualstudio.com/',
+        'b',
+        'c',
+      );
+
+      expect(repo, isA<AzureDevOpsRepository>());
     });
 
     test('throws if URL cannot be parsed as URL to one of known hosts', () {

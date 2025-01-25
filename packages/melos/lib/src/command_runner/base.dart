@@ -7,7 +7,7 @@ import '../common/utils.dart';
 import '../global_options.dart';
 import '../logging.dart';
 import '../package.dart';
-import '../workspace_configs.dart';
+import '../workspace_config.dart';
 
 abstract class MelosCommand extends Command<void> {
   MelosCommand(this.config);
@@ -20,7 +20,7 @@ abstract class MelosCommand extends Command<void> {
   late final logger =
       MelosLogger(global.verbose ? Logger.verbose() : Logger.standard());
 
-  /// The `melos.yaml` configuration for this command. see
+  /// The `pubspec.yaml` configuration for this command. see
   /// [ArgParser.allowTrailingOptions]
   bool get allowTrailingOptions => true;
 
@@ -75,6 +75,14 @@ abstract class MelosCommand extends Command<void> {
       filterOptionScope,
       valueHelp: 'glob',
       help: 'Include only packages with names matching the given glob. This '
+          'option can be repeated.',
+    );
+
+    argParser.addMultiOption(
+      filterOptionCategory,
+      valueHelp: 'glob',
+      help:
+          'Include only packages with categories matching the given glob. This '
           'option can be repeated.',
     );
 
@@ -151,6 +159,7 @@ abstract class MelosCommand extends Command<void> {
 
     final diff = diffEnabled ? argResults![filterOptionDiff] as String? : null;
     final scope = argResults![filterOptionScope] as List<String>? ?? [];
+    final categories = argResults![filterOptionCategory] as List<String>? ?? [];
     final ignore = argResults![filterOptionIgnore] as List<String>? ?? [];
 
     return PackageFilters(
@@ -161,6 +170,9 @@ abstract class MelosCommand extends Command<void> {
           .map((e) => createGlob(e, currentDirectoryPath: workingDirPath))
           .toList()
         ..addAll(config.ignore),
+      categories: categories
+          .map((e) => createGlob(e, currentDirectoryPath: workingDirPath))
+          .toList(),
       diff: diff,
       includePrivatePackages: argResults![filterOptionPrivate] as bool?,
       published: argResults![filterOptionPublished] as bool?,

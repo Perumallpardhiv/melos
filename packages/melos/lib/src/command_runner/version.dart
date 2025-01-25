@@ -1,20 +1,3 @@
-/*
- * Copyright (c) 2016-present Invertase Limited & Contributors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this library except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
- */
-
 import 'dart:io';
 
 import 'package:ansi_styles/ansi_styles.dart';
@@ -84,10 +67,16 @@ class VersionCommand extends MelosCommand {
       'git-tag-version',
       abbr: 't',
       defaultsTo: true,
-      help:
-          'By default, melos version will commit changes to pubspec.yaml files '
-          'and tag the release. Pass --no-git-tag-version to disable the '
-          'behaviour.',
+      help: 'By default, melos version will tag the release. Pass '
+          '--no-git-tag-version to disable the behaviour.',
+    );
+    argParser.addFlag(
+      'git-commit-version',
+      abbr: 'C',
+      defaultsTo: true,
+      help: 'By default, melos version will commit changes to pubspec.yaml and '
+          'changelog files. Pass --no-git-commit-version to disable the '
+          'behaviour, passing this also implies --no-git-tag-version.',
     );
     argParser.addFlag(
       'release-url',
@@ -167,6 +156,7 @@ class VersionCommand extends MelosCommand {
     final updateDependentsConstraints =
         argResults!['dependent-constraints'] as bool;
     final tag = argResults!['git-tag-version'] as bool;
+    final commit = argResults!['git-commit-version'] as bool;
     final releaseUrl = argResults!.optional('release-url') as bool?;
     final changelog = argResults!['changelog'] as bool;
     final commitMessage =
@@ -196,6 +186,7 @@ class VersionCommand extends MelosCommand {
         manualVersions: {packageName: versionChange},
         force: force,
         gitTag: tag,
+        gitCommit: commit,
         releaseUrl: releaseUrl,
         updateChangelog: changelog,
         updateDependentsConstraints: updateDependentsConstraints,
@@ -238,6 +229,7 @@ class VersionCommand extends MelosCommand {
         packageFilters: parsePackageFilters(config.path),
         force: force,
         gitTag: tag,
+        gitCommit: commit,
         releaseUrl: releaseUrl,
         updateChangelog: changelog,
         updateDependentsConstraints: updateDependentsConstraints,
@@ -261,9 +253,8 @@ class VersionCommand extends MelosCommand {
       return ManualVersionChange.incrementBuildNumber();
     }
 
-    final semverReleaseType = SemverReleaseType.values.firstWhereOrNull(
-      (releaseType) => describeEnum(releaseType) == argument,
-    );
+    final semverReleaseType = SemverReleaseType.values
+        .firstWhereOrNull((releaseType) => releaseType.name == argument);
     if (semverReleaseType != null) {
       return ManualVersionChange.incrementBySemverReleaseType(
         semverReleaseType,

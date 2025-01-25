@@ -1,20 +1,3 @@
-/*
- * Copyright (c) 2016-present Invertase Limited & Contributors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this library except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
- */
-
 import 'package:melos/melos.dart';
 import 'package:melos/src/common/changelog.dart';
 import 'package:melos/src/common/git_commit.dart';
@@ -137,6 +120,35 @@ void main() {
     );
   });
 
+  group('includeDateInChangelogEntry', () {
+    test('should not include date by default', () {
+      final changelogEntryDate = DateTime.now().toFormattedString();
+
+      final workspace = buildWorkspaceWithRepository();
+      final package = workspace.allPackages['test_pkg']!;
+      final commit = testCommit(message: 'feat: a');
+
+      expect(
+        renderCommitPackageUpdate(workspace, package, commit),
+        isNot(contains(changelogEntryDate)),
+      );
+    });
+
+    test('should include date when enabled', () {
+      final changelogEntryDate = DateTime.now().toFormattedString();
+
+      final workspace =
+          buildWorkspaceWithRepository(includeDateInChangelogEntry: true);
+      final package = workspace.allPackages['test_pkg']!;
+      final commit = testCommit(message: 'feat: a');
+
+      expect(
+        renderCommitPackageUpdate(workspace, package, commit),
+        contains(changelogEntryDate),
+      );
+    });
+  });
+
   test('when repository is specified, adds links to referenced issues/PRs', () {
     final workspace = buildWorkspaceWithRepository();
     final package = workspace.allPackages['test_pkg']!;
@@ -154,6 +166,7 @@ MelosWorkspace buildWorkspaceWithRepository({
   bool includeScopes = false,
   bool linkToCommits = false,
   bool includeCommitId = false,
+  bool includeDateInChangelogEntry = false,
 }) {
   final workspaceBuilder = VirtualWorkspaceBuilder(
     '''
@@ -163,6 +176,8 @@ MelosWorkspace buildWorkspaceWithRepository({
         includeScopes: $includeScopes
         includeCommitId: $includeCommitId
         linkToCommits: $linkToCommits
+        changelogFormat:
+          includeDate: $includeDateInChangelogEntry
     ''',
   )..addPackage(
       '''

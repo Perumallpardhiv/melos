@@ -5,12 +5,16 @@ mixin _ExecMixin on _Melos {
     List<String> execArgs, {
     GlobalOptions? global,
     PackageFilters? packageFilters,
-    int concurrency = 5,
+    int? concurrency,
     bool failFast = false,
     bool orderDependents = false,
+    Map<String, String> extraEnvironment = const {},
   }) async {
-    final workspace =
-        await createWorkspace(global: global, packageFilters: packageFilters);
+    concurrency ??= Platform.numberOfProcessors;
+    final workspace = await createWorkspace(
+      global: global,
+      packageFilters: packageFilters,
+    );
     final packages = workspace.filteredPackages.values;
 
     await _execForAllPackages(
@@ -20,6 +24,7 @@ mixin _ExecMixin on _Melos {
       failFast: failFast,
       concurrency: concurrency,
       orderDependents: orderDependents,
+      additionalEnvironment: extraEnvironment,
     );
   }
 
@@ -29,18 +34,21 @@ mixin _ExecMixin on _Melos {
     Package package,
     List<String> execArgs, {
     bool prefixLogs = true,
+    Map<String, String> extraEnvironment = const {},
   }) async {
     final packagePrefix = '[${AnsiStyles.blue.bold(package.name)}]: ';
 
     final environment = {
       ...currentPlatform.environment,
-      'MELOS_PACKAGE_NAME': package.name,
-      'MELOS_PACKAGE_VERSION': (package.version).toString(),
-      'MELOS_PACKAGE_PATH': package.path,
-      'MELOS_ROOT_PATH': workspace.path,
-      if (workspace.sdkPath != null) envKeyMelosSdkPath: workspace.sdkPath!,
+      ...extraEnvironment,
+      EnvironmentVariableKey.melosPackageName: package.name,
+      EnvironmentVariableKey.melosPackageVersion: package.version.toString(),
+      EnvironmentVariableKey.melosPackagePath: package.path,
+      EnvironmentVariableKey.melosRootPath: workspace.path,
+      if (workspace.sdkPath != null)
+        EnvironmentVariableKey.melosSdkPath: workspace.sdkPath!,
       if (workspace.childProcessPath != null)
-        'PATH': workspace.childProcessPath!,
+        EnvironmentVariableKey.path: workspace.childProcessPath!,
     };
 
     if (package.isExample) {
@@ -49,31 +57,20 @@ mixin _ExecMixin on _Melos {
           p.normalize('$exampleParentPackagePath/pubspec.yaml');
 
       if (fileExists(exampleParentPubspecPath)) {
-        final exampleParentPackage = PubSpec.fromYamlString(
+        final exampleParentPackage = Pubspec.parse(
           await readTextFileAsync(exampleParentPubspecPath),
         );
 
-        environment['MELOS_PARENT_PACKAGE_NAME'] = exampleParentPackage.name!;
-        environment['MELOS_PARENT_PACKAGE_VERSION'] =
+        environment[EnvironmentVariableKey.melosParentPackageName] =
+            exampleParentPackage.name;
+        environment[EnvironmentVariableKey.melosParentPackageVersion] =
             (exampleParentPackage.version ?? Version.none).toString();
-        environment['MELOS_PARENT_PACKAGE_PATH'] = exampleParentPackagePath;
+        environment[EnvironmentVariableKey.melosParentPackagePath] =
+            exampleParentPackagePath;
       }
     }
-    if (environment.containsKey('MELOS_TEST')) {
-      // TODO(rrousselGit) refactor this to not have to manually maitain the
-      // list of env variables to remove
-      environment.remove('MELOS_TEST');
-      environment.remove('MELOS_ROOT_PATH');
-      environment.remove('MELOS_SCRIPT');
-      environment.remove('MELOS_PACKAGE_NAME');
-      environment.remove('MELOS_PACKAGE_VERSION');
-      environment.remove('MELOS_PACKAGE_PATH');
-      environment.remove('MELOS_PARENT_PACKAGE_NAME');
-      environment.remove('MELOS_PARENT_PACKAGE_VERSION');
-      environment.remove('MELOS_PARENT_PACKAGE_PATH');
-      environment.remove(envKeyMelosPackages);
-      environment.remove(envKeyMelosSdkPath);
-      environment.remove(envKeyMelosTerminalWidth);
+    if (environment.containsKey(EnvironmentVariableKey.melosTest)) {
+      EnvironmentVariableKey.allMelosKeys().forEach(environment.remove);
     }
 
     return startCommand(
@@ -81,7 +78,7 @@ mixin _ExecMixin on _Melos {
       logger: logger,
       environment: environment,
       workingDirectory: package.path,
-      prefix: prefixLogs ? packagePrefix : null,
+      logPrefix: prefixLogs ? packagePrefix : null,
       // The parent env is injected manually above
       includeParentEnvironment: false,
     );
@@ -94,9 +91,22 @@ mixin _ExecMixin on _Melos {
     required int concurrency,
     required bool failFast,
     required bool orderDependents,
+    Map<String, String> additionalEnvironment = const {},
   }) async {
+    final sortedPackages = packages.toList(growable: false);
+    var hasImpactfulCycles = false;
+
+    if (orderDependents) {
+      // TODO: This is not really the right way to do this. Cyclic dependencies
+      // are handled in a way that is specific for publishing.
+      sortPackagesForPublishing(sortedPackages);
+      hasImpactfulCycles =
+          findCyclicDependenciesInWorkspace(sortedPackages).isNotEmpty;
+    }
+
+    final calculatedConcurrency = hasImpactfulCycles ? 1 : concurrency;
     final failures = <String, int?>{};
-    final pool = Pool(concurrency);
+    final pool = Pool(calculatedConcurrency);
     final execArgsString = execArgs.join(' ');
     final prefixLogs = concurrency != 1 && packages.length != 1;
 
@@ -109,63 +119,70 @@ mixin _ExecMixin on _Melos {
       logger.horizontalLine();
     }
 
-    final sortedPackages = packages.toList(growable: false);
-
-    if (orderDependents) {
-      // TODO: This is not really the right way to do this. Cyclic dependencies
-      // are handled in a way that is specific for publishing.
-      sortPackagesForPublishing(sortedPackages);
-    }
-
     final packageResults = Map.fromEntries(
       packages.map((package) => MapEntry(package.name, Completer<int?>())),
     );
 
-    await pool.forEach<Package, void>(sortedPackages, (package) async {
-      if (failFast && failures.isNotEmpty) {
-        return;
-      }
+    late final CancelableOperation<void> operation;
 
-      if (orderDependents) {
-        final dependenciesResults = await Future.wait(
-          package.allDependenciesInWorkspace.values
-              .map((package) => packageResults[package.name]?.future)
-              .whereNotNull(),
-        );
+    operation = CancelableOperation.fromFuture(
+      pool.forEach<Package, void>(sortedPackages, (package) async {
+        assert(!(failFast && failures.isNotEmpty));
 
-        final dependencyFailed = dependenciesResults
-            .any((exitCode) => exitCode == null || exitCode > 0);
-        if (dependencyFailed) {
-          packageResults[package.name]?.complete();
-          failures[package.name] = null;
-          return;
+        if (orderDependents && !hasImpactfulCycles) {
+          final dependenciesResults = await Future.wait(
+            package.allDependenciesInWorkspace.values
+                .map((package) => packageResults[package.name]?.future)
+                .nonNulls,
+          );
+
+          final dependencyFailed = dependenciesResults.any(
+            (exitCode) => exitCode == null || exitCode > 0,
+          );
+          if (dependencyFailed) {
+            packageResults[package.name]?.complete();
+            failures[package.name] = null;
+
+            return;
+          }
         }
-      }
 
-      if (!prefixLogs) {
-        logger
-          ..horizontalLine()
-          ..log(AnsiStyles.bgBlack.bold.italic('${package.name}:'));
-      }
+        if (!prefixLogs) {
+          logger
+            ..horizontalLine()
+            ..log(AnsiStyles.bgBlack.bold.italic('${package.name}:'));
+        }
 
-      final packageExitCode = await _execForPackage(
-        workspace,
-        package,
-        execArgs,
-        prefixLogs: prefixLogs,
-      );
-
-      packageResults[package.name]?.complete(packageExitCode);
-
-      if (packageExitCode > 0) {
-        failures[package.name] = packageExitCode;
-      } else if (!prefixLogs) {
-        logger.log(
-          AnsiStyles.bgBlack.bold.italic('${package.name}: ') +
-              AnsiStyles.bgBlack(successLabel),
+        final packageExitCode = await _execForPackage(
+          workspace,
+          package,
+          execArgs,
+          prefixLogs: prefixLogs,
+          extraEnvironment: additionalEnvironment,
         );
-      }
-    }).drain<void>();
+
+        packageResults[package.name]?.complete(packageExitCode);
+
+        if (packageExitCode > 0) {
+          failures[package.name] = packageExitCode;
+        } else if (!prefixLogs) {
+          logger.log(
+            AnsiStyles.bgBlack.bold.italic('${package.name}: ') +
+                AnsiStyles.bgBlack(successLabel),
+          );
+        }
+
+        if (packageExitCode > 0 && failFast) {
+          await operation.cancel();
+        }
+      }).drain<void>(),
+    );
+
+    await operation.valueOrCancellation();
+
+    if (failFast) {
+      runningPids.forEach(Process.killPid);
+    }
 
     logger
       ..horizontalLine()
@@ -184,7 +201,39 @@ mixin _ExecMixin on _Melos {
               'with exit code ${failures[packageName]})'}',
         );
       }
-      exitCode = 1;
+
+      final canceled = <String>[];
+      for (final package in packages) {
+        if (failures.containsKey(package.name)) {
+          continue;
+        }
+
+        if (packageResults.containsKey(package.name)) {
+          final packageResult = packageResults[package.name]!;
+
+          if (packageResult.isCompleted) {
+            final exitCode = await packageResult.future;
+
+            if (exitCode == 0) {
+              continue;
+            }
+          }
+        }
+
+        canceled.add(package.name);
+      }
+
+      if (canceled.isNotEmpty) {
+        final canceledLogger = resultLogger
+            .child('$canceledLabel (in ${canceled.length} packages)');
+        for (final packageName in canceled) {
+          canceledLogger.child(
+            '${errorPackageNameStyle(packageName)} (due to failFast)',
+          );
+        }
+      }
+
+      exitCode = failFast ? failures[failures.keys.first]! : 1;
     } else {
       resultLogger.child(successLabel);
     }

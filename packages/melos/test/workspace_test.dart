@@ -1,59 +1,44 @@
-/*
- * Copyright (c) 2016-present Invertase Limited & Contributors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this library except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 import 'dart:convert';
 import 'dart:io';
 import 'dart:io' as io;
 
 import 'package:melos/melos.dart';
+import 'package:melos/src/common/environment_variable_key.dart';
 import 'package:melos/src/common/glob.dart';
 import 'package:melos/src/common/utils.dart';
 import 'package:melos/src/workspace.dart';
 import 'package:path/path.dart' as p;
 import 'package:platform/platform.dart';
-import 'package:pubspec/pubspec.dart';
+import 'package:pubspec_parse/pubspec_parse.dart';
 import 'package:test/test.dart';
 
 import 'matchers.dart';
 import 'mock_env.dart';
-import 'mock_fs.dart';
-import 'mock_workspace_fs.dart';
 import 'utils.dart';
 
 void main() {
   group('Workspace', () {
     test('throws if multiple packages have the same name', () async {
-      final workspaceDir = await createTemporaryWorkspace();
+      final workspaceDir = await createTemporaryWorkspace(
+        workspacePackages: ['a', 'b', 'a/example', 'b/example'],
+      );
 
       await createProject(
         workspaceDir,
-        const PubSpec(name: 'a'),
+        Pubspec('a'),
       );
       await createProject(
         workspaceDir,
-        const PubSpec(name: 'example'),
+        Pubspec('example'),
         path: 'packages/a/example',
       );
       await createProject(
         workspaceDir,
-        const PubSpec(name: 'b'),
+        Pubspec('b'),
       );
       await createProject(
         workspaceDir,
-        const PubSpec(name: 'example'),
+        Pubspec('example'),
         path: 'packages/b/example',
       );
 
@@ -86,19 +71,15 @@ The packages that caused the problem are:
     });
 
     test('can be accessed from anywhere within a workspace', () async {
-      final workspaceDir = await createTemporaryWorkspace(
-        runPubGet: true,
-        configBuilder: (path) => MelosWorkspaceConfig.fromYaml(
-          path: path,
-          const {
-            'name': 'test',
-            'packages': ['packages/*'],
-          },
-        ),
-      );
-      final projectDir =
-          await createProject(workspaceDir, const PubSpec(name: 'a'));
+      final workspaceDir =
+          await createTemporaryWorkspace(workspacePackages: ['a']);
+      final projectDir = await createProject(workspaceDir, Pubspec('a'));
 
+      await Process.run(
+        'melos',
+        ['bootstrap'],
+        workingDirectory: projectDir.path,
+      );
       final result = await Process.run(
         'melos',
         ['list'],
@@ -109,24 +90,27 @@ The packages that caused the problem are:
       );
 
       expect(result.exitCode, 0);
-      expect(result.stdout, 'a\n');
+      expect(result.stdout, ignoringDependencyMessages('a\n'));
     });
 
     test(
-      'does not include projects inside packages/whatever/.dart_tool when no melos.yaml is specified',
-      withMockFs(() async {
+      'does not include projects inside packages/whatever/.dart_tool when melos '
+      'section is defined in the root pubspec.yaml',
+      () async {
         // regression test for https://github.com/invertase/melos/issues/101
 
-        final mockWorkspaceRootDir = createMockWorkspaceFs(
-          workspaceRoot: '/root',
-          packages: [
-            MockPackageFs(name: 'a'),
-            MockPackageFs(name: 'b', path: '/root/packages/a/.dart_tool/b'),
-          ],
+        final workspaceRootDir = await createTemporaryWorkspace(
+          workspacePackages: ['a'],
+        );
+
+        await createProject(workspaceRootDir, Pubspec('a'));
+        await createProject(
+          Directory('${workspaceRootDir.path}/a/.dart_tool'),
+          Pubspec('b'),
         );
 
         final config =
-            await MelosWorkspaceConfig.fromWorkspaceRoot(mockWorkspaceRootDir);
+            await MelosWorkspaceConfig.fromWorkspaceRoot(workspaceRootDir);
         final workspace = await MelosWorkspace.fromConfig(
           config,
           logger: TestLogger().toMelosLogger(),
@@ -136,13 +120,15 @@ The packages that caused the problem are:
           workspace.filteredPackages.values,
           [packageNamed('a')],
         );
-      }),
+      },
     );
 
     test(
       'load workspace config when workspace contains broken symlink',
       () async {
-        final workspaceDir = await createTemporaryWorkspace();
+        final workspaceDir = await createTemporaryWorkspace(
+          workspacePackages: [],
+        );
 
         final link = Link(p.join(workspaceDir.path, 'link'));
         await link.create(p.join(workspaceDir.path, 'does-not-exist'));
@@ -157,19 +143,14 @@ The packages that caused the problem are:
     group('locate packages', () {
       test('in workspace root', () async {
         final workspaceDir = await createTemporaryWorkspace(
-          configBuilder: (path) => MelosWorkspaceConfig.fromYaml(
-            const {
-              'name': 'test',
-              'packages': ['.']
-            },
-            path: path,
-          ),
+          workspacePackages: ['a'],
+          prependPackages: false,
         );
 
         await createProject(
           workspaceDir,
-          const PubSpec(name: 'a'),
-          path: '.',
+          Pubspec('a'),
+          path: 'a',
         );
 
         final workspace = await MelosWorkspace.fromConfig(
@@ -185,13 +166,14 @@ The packages that caused the problem are:
           configBuilder: (path) => MelosWorkspaceConfig.fromYaml(
             const {
               'name': 'test',
-              'packages': ['packages/a']
+              'packages': ['packages/a'],
             },
             path: path,
           ),
+          workspacePackages: ['a'],
         );
 
-        await createProject(workspaceDir, const PubSpec(name: 'a'));
+        await createProject(workspaceDir, Pubspec('a'));
 
         final workspace = await MelosWorkspace.fromConfig(
           await MelosWorkspaceConfig.fromWorkspaceRoot(workspaceDir),
@@ -210,11 +192,12 @@ The packages that caused the problem are:
             expect(workspace.sdkPath, '/sdks/env');
           },
           platform: FakePlatform.fromPlatform(const LocalPlatform())
-            ..environment[envKeyMelosSdkPath] = '/sdks/env',
+            ..environment[EnvironmentVariableKey.melosSdkPath] = '/sdks/env',
         );
       });
 
-      test('prepend SDK bin directory to PATH', () async {
+      test('prepend SDK bin directory to ${EnvironmentVariableKey.path}',
+          () async {
         withMockPlatform(
           () {
             final workspace = VirtualWorkspaceBuilder(
@@ -224,7 +207,7 @@ The packages that caused the problem are:
             expect(workspace.path, '/sdk$pathEnvVarSeparator/bin');
           },
           platform: FakePlatform.fromPlatform(const LocalPlatform())
-            ..environment['PATH'] = '/bin',
+            ..environment[EnvironmentVariableKey.path] = '/bin',
         );
       });
     });
@@ -233,20 +216,24 @@ The packages that caused the problem are:
       group('--include-dependencies', () {
         test(
           'includes the scoped package',
-          withMockFs(() async {
-            final workspaceDir = createMockWorkspaceFs(
-              packages: [
-                MockPackageFs(name: 'a', dependencies: ['b']),
-                MockPackageFs(name: 'b'),
-              ],
+          () async {
+            final workspaceDir = await createTemporaryWorkspace(
+              workspacePackages: ['a', 'b'],
             );
+
+            await createProject(
+              workspaceDir,
+              Pubspec('a', dependencies: {'b': HostedDependency()}),
+            );
+            await createProject(workspaceDir, Pubspec('b'));
+
             final config =
                 await MelosWorkspaceConfig.fromWorkspaceRoot(workspaceDir);
             final workspace = await MelosWorkspace.fromConfig(
               config,
               packageFilters: PackageFilters(
                 scope: [
-                  createGlob('b', currentDirectoryPath: workspaceDir.path)
+                  createGlob('b', currentDirectoryPath: workspaceDir.path),
                 ],
                 includeDependencies: true,
               ),
@@ -254,18 +241,22 @@ The packages that caused the problem are:
             );
 
             expect(workspace.filteredPackages.values, [packageNamed('b')]);
-          }),
+          },
         );
 
         test(
           'includes direct dependencies',
-          withMockFs(() async {
-            final workspaceDir = createMockWorkspaceFs(
-              packages: [
-                MockPackageFs(name: 'a', dependencies: ['b']),
-                MockPackageFs(name: 'b'),
-              ],
+          () async {
+            final workspaceDir = await createTemporaryWorkspace(
+              workspacePackages: ['a', 'b'],
             );
+
+            await createProject(
+              workspaceDir,
+              Pubspec('a', dependencies: {'b': HostedDependency()}),
+            );
+            await createProject(workspaceDir, Pubspec('b'));
+
             final config =
                 await MelosWorkspaceConfig.fromWorkspaceRoot(workspaceDir);
             final workspace = await MelosWorkspace.fromConfig(
@@ -286,19 +277,26 @@ The packages that caused the problem are:
                 packageNamed('b'),
               ]),
             );
-          }),
+          },
         );
 
         test(
           'includes transient dependencies',
-          withMockFs(() async {
-            final workspaceDir = createMockWorkspaceFs(
-              packages: [
-                MockPackageFs(name: 'a', dependencies: ['b']),
-                MockPackageFs(name: 'b', dependencies: ['c']),
-                MockPackageFs(name: 'c'),
-              ],
+          () async {
+            final workspaceDir = await createTemporaryWorkspace(
+              workspacePackages: ['a', 'b', 'c'],
             );
+
+            await createProject(
+              workspaceDir,
+              Pubspec('a', dependencies: {'b': HostedDependency()}),
+            );
+            await createProject(
+              workspaceDir,
+              Pubspec('b', dependencies: {'c': HostedDependency()}),
+            );
+            await createProject(workspaceDir, Pubspec('c'));
+
             final config =
                 await MelosWorkspaceConfig.fromWorkspaceRoot(workspaceDir);
             final workspace = await MelosWorkspace.fromConfig(
@@ -320,20 +318,36 @@ The packages that caused the problem are:
                 packageNamed('c'), // This dep is transitive
               ]),
             );
-          }),
+          },
         );
 
         test(
           'does not include duplicates',
-          withMockFs(() async {
-            final workspaceDir = createMockWorkspaceFs(
-              packages: [
-                MockPackageFs(name: 'a', dependencies: ['b', 'c']),
-                MockPackageFs(name: 'b', dependencies: ['d']),
-                MockPackageFs(name: 'c', dependencies: ['d']),
-                MockPackageFs(name: 'd'),
-              ],
+          () async {
+            final workspaceDir = await createTemporaryWorkspace(
+              workspacePackages: ['a', 'b', 'c', 'd'],
             );
+
+            await createProject(
+              workspaceDir,
+              Pubspec(
+                'a',
+                dependencies: {
+                  'b': HostedDependency(),
+                  'c': HostedDependency(),
+                },
+              ),
+            );
+            await createProject(
+              workspaceDir,
+              Pubspec('b', dependencies: {'d': HostedDependency()}),
+            );
+            await createProject(
+              workspaceDir,
+              Pubspec('c', dependencies: {'d': HostedDependency()}),
+            );
+            await createProject(workspaceDir, Pubspec('d'));
+
             final config =
                 await MelosWorkspaceConfig.fromWorkspaceRoot(workspaceDir);
             final workspace = await MelosWorkspace.fromConfig(
@@ -352,20 +366,24 @@ The packages that caused the problem are:
               workspace.filteredPackages.values,
               isNot(containsDuplicates),
             );
-          }),
+          },
         );
       });
 
       group('--include-dependents', () {
         test(
           'includes the scoped package',
-          withMockFs(() async {
-            final workspaceDir = createMockWorkspaceFs(
-              packages: [
-                MockPackageFs(name: 'a', dependencies: ['b']),
-                MockPackageFs(name: 'b'),
-              ],
+          () async {
+            final workspaceDir = await createTemporaryWorkspace(
+              workspacePackages: ['a', 'b'],
             );
+
+            await createProject(
+              workspaceDir,
+              Pubspec('a', dependencies: {'b': HostedDependency()}),
+            );
+            await createProject(workspaceDir, Pubspec('b'));
+
             final config =
                 await MelosWorkspaceConfig.fromWorkspaceRoot(workspaceDir);
             final workspace = await MelosWorkspace.fromConfig(
@@ -380,18 +398,22 @@ The packages that caused the problem are:
             );
 
             expect(workspace.filteredPackages.values, [packageNamed('a')]);
-          }),
+          },
         );
 
         test(
           'includes direct dependents',
-          withMockFs(() async {
-            final workspaceDir = createMockWorkspaceFs(
-              packages: [
-                MockPackageFs(name: 'a', dependencies: ['b']),
-                MockPackageFs(name: 'b'),
-              ],
+          () async {
+            final workspaceDir = await createTemporaryWorkspace(
+              workspacePackages: ['a', 'b'],
             );
+
+            await createProject(
+              workspaceDir,
+              Pubspec('a', dependencies: {'b': HostedDependency()}),
+            );
+            await createProject(workspaceDir, Pubspec('b'));
+
             final config =
                 await MelosWorkspaceConfig.fromWorkspaceRoot(workspaceDir);
             final workspace = await MelosWorkspace.fromConfig(
@@ -410,19 +432,26 @@ The packages that caused the problem are:
               workspace.filteredPackages.values,
               containsAll(<Matcher>[packageNamed('a'), packageNamed('b')]),
             );
-          }),
+          },
         );
 
         test(
           'includes transient dependents',
-          withMockFs(() async {
-            final workspaceDir = createMockWorkspaceFs(
-              packages: [
-                MockPackageFs(name: 'a', dependencies: ['b']),
-                MockPackageFs(name: 'b', dependencies: ['c']),
-                MockPackageFs(name: 'c'),
-              ],
+          () async {
+            final workspaceDir = await createTemporaryWorkspace(
+              workspacePackages: ['a', 'b', 'c'],
             );
+
+            await createProject(
+              workspaceDir,
+              Pubspec('a', dependencies: {'b': HostedDependency()}),
+            );
+            await createProject(
+              workspaceDir,
+              Pubspec('b', dependencies: {'c': HostedDependency()}),
+            );
+            await createProject(workspaceDir, Pubspec('c'));
+
             final config =
                 await MelosWorkspaceConfig.fromWorkspaceRoot(workspaceDir);
             final workspace = await MelosWorkspace.fromConfig(
@@ -444,20 +473,36 @@ The packages that caused the problem are:
                 packageNamed('c'), // This dep is transitive
               ]),
             );
-          }),
+          },
         );
 
         test(
           'does not include duplicates',
-          withMockFs(() async {
-            final workspaceDir = createMockWorkspaceFs(
-              packages: [
-                MockPackageFs(name: 'a', dependencies: ['b', 'c']),
-                MockPackageFs(name: 'b', dependencies: ['d']),
-                MockPackageFs(name: 'c', dependencies: ['d']),
-                MockPackageFs(name: 'd'),
-              ],
+          () async {
+            final workspaceDir = await createTemporaryWorkspace(
+              workspacePackages: ['a', 'b', 'c', 'd'],
             );
+
+            await createProject(
+              workspaceDir,
+              Pubspec(
+                'a',
+                dependencies: {
+                  'b': HostedDependency(),
+                  'c': HostedDependency(),
+                },
+              ),
+            );
+            await createProject(
+              workspaceDir,
+              Pubspec('b', dependencies: {'d': HostedDependency()}),
+            );
+            await createProject(
+              workspaceDir,
+              Pubspec('c', dependencies: {'d': HostedDependency()}),
+            );
+            await createProject(workspaceDir, Pubspec('d'));
+
             final config =
                 await MelosWorkspaceConfig.fromWorkspaceRoot(workspaceDir);
             final workspace = await MelosWorkspace.fromConfig(
@@ -476,7 +521,7 @@ The packages that caused the problem are:
               workspace.filteredPackages.values,
               isNot(containsDuplicates),
             );
-          }),
+          },
         );
       });
     });
