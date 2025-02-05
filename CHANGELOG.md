@@ -3,6 +3,622 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## 2025-02-03
+
+### Changes
+
+---
+
+Packages with breaking changes:
+
+ - There are no breaking changes in this release.
+
+Packages with other changes:
+
+ - [`melos` - `v7.0.0-dev.7`](#melos---v700-dev7)
+
+---
+
+#### `melos` - `v7.0.0-dev.7`
+
+ - **FIX**: Remove old pubspec_overrides entries on `clean` ([#861](https://github.com/invertase/melos/issues/861)). ([d5a6ea67](https://github.com/invertase/melos/commit/d5a6ea678f31d38ed19b441ea31ac0d83a8ee789))
+ - **DOCS**: add ReactiveX/rxdart to README and docs ([#859](https://github.com/invertase/melos/issues/859)). ([303883b6](https://github.com/invertase/melos/commit/303883b6af807ac077b58db3099c704f257e908a))
+
+
+## 2025-02-01
+
+### Changes
+
+---
+
+Packages with breaking changes:
+
+ - There are no breaking changes in this release.
+
+Packages with other changes:
+
+ - [`melos` - `v7.0.0-dev.6`](#melos---v700-dev6)
+
+---
+
+#### `melos` - `v7.0.0-dev.6`
+
+ - **REFACTOR**: optimize clean command by precomputing paths to clean ([#855](https://github.com/invertase/melos/issues/855)). ([daba40d4](https://github.com/invertase/melos/commit/daba40d47a13999a9c5ca389a4a389afea931e91))
+ - **FIX**: Melos init adding empty string / list in pubspec.yaml ([#856](https://github.com/invertase/melos/issues/856)). ([50b102b3](https://github.com/invertase/melos/commit/50b102b3dd1e1b24e56006bdc9761ebbc94a97d7))
+ - **FIX**: Fix externally hosted versioning ([#852](https://github.com/invertase/melos/issues/852)). ([40476ed5](https://github.com/invertase/melos/commit/40476ed51dfbc669d83223dd7b067174d2ac0abc))
+ - **FEAT**: Add support for executeInTerminal for IntelliJ run configs ([#857](https://github.com/invertase/melos/issues/857)). ([b6acf504](https://github.com/invertase/melos/commit/b6acf5040d98405f2c67846d0c55c47dae6b1b02))
+
+
+## 2025-01-24
+
+### Changes
+
+---
+
+Packages with breaking changes:
+
+ - There are no breaking changes in this release.
+
+Packages with other changes:
+
+ - [`melos` - `v7.0.0-dev.5`](#melos---v700-dev5)
+
+---
+
+#### `melos` - `v7.0.0-dev.5`
+
+ - **FIX**: Fix externally hosted versioning ([#852](https://github.com/invertase/melos/issues/852)). ([40476ed5](https://github.com/invertase/melos/commit/40476ed51dfbc669d83223dd7b067174d2ac0abc))
+ - **FEAT**: Rollback on failed shared dependency resolution ([#848](https://github.com/invertase/melos/issues/848)). ([949c2f6c](https://github.com/invertase/melos/commit/949c2f6c77b6bae92e29a03fc452417b558010f0))
+ - **DOCS**: Rearrange repos using melos ([#845](https://github.com/invertase/melos/issues/845)). ([f744da86](https://github.com/invertase/melos/commit/f744da860c5fde166f16c624f5cf5058c62d4370))
+
+
+## 2025-01-19
+
+### Changes
+
+---
+
+Packages with breaking changes:
+
+ - There are no breaking changes in this release.
+
+Packages with other changes:
+
+ - [`melos` - `v7.0.0-dev.4`](#melos---v700-dev4)
+
+---
+
+#### `melos` - `v7.0.0-dev.4`
+
+ - **FIX**: Version package correctly ([#842](https://github.com/invertase/melos/issues/842)). ([a9fde62b](https://github.com/invertase/melos/commit/a9fde62bb2ae5a8599b72a7d792170995db9d64c))
+ - **FIX**: Properly format Git and HostedDependency ([#841](https://github.com/invertase/melos/issues/841)). ([a699139a](https://github.com/invertase/melos/commit/a699139aa1d984010b40ae12f2a14bd994df7b7c))
+
+
+## 2025-01-10
+
+### Changes
+
+---
+
+Packages with breaking changes:
+
+ - [`melos` - `v7.0.0-dev.3`](#melos---v700-dev3)
+
+Packages with other changes:
+
+ - There are no other changes in this release.
+
+---
+
+#### `melos` - `v7.0.0-dev.3`
+
+ - **FIX**: Run examples from own directory ([#834](https://github.com/invertase/melos/issues/834)). ([e4ade765](https://github.com/invertase/melos/commit/e4ade765dfa4cf5f791cf22993474693230fd3d0))
+ - **FIX**: fix git dependencies comparison on bootstrap ([#659](https://github.com/invertase/melos/issues/659)). ([c5238cd0](https://github.com/invertase/melos/commit/c5238cd0eed8723e053717c21baa9361ccff7733))
+ - **FIX**: Fixed versioning for nested version fields ([#831](https://github.com/invertase/melos/issues/831)). ([4def2093](https://github.com/invertase/melos/commit/4def20937be9f50c28630c40a069475da8223a40))
+ - **BREAKING** **FEAT**: Remove melos.yaml in favor of the root pubspec.yaml ([#832](https://github.com/invertase/melos/issues/832)). ([ade758c2](https://github.com/invertase/melos/commit/ade758c23fee626ae60a275eddfde04fd73187af))
+
+
+## 2025-01-07
+
+### Changes
+
+---
+
+Packages with breaking changes:
+
+ - There are no breaking changes in this release.
+
+Packages with other changes:
+
+ - [`melos` - `v7.0.0-dev.2`](#melos---v700-dev2)
+
+---
+
+#### `melos` - `v7.0.0-dev.2`
+
+ - Relaxing file and platform dependency constraints
+
+
+## 2025-01-07
+
+### Changes
+
+---
+
+Packages with breaking changes:
+
+ - There are no breaking changes in this release.
+
+Packages with other changes:
+
+ - [`melos` - `v7.0.0-dev.1`](#melos---v700-dev1)
+
+---
+
+#### `melos` - `v7.0.0-dev.1`
+
+ - **FIX**: Only run pub get in workspace root ([#822](https://github.com/invertase/melos/issues/822)). ([abb1e539](https://github.com/invertase/melos/commit/abb1e539fc7d036d786a5740317080f5d70f63b9))
+
+
+## 2025-01-07
+
+### Changes
+
+---
+
+Packages with breaking changes:
+
+ - [`melos` - `v7.0.0-dev.0`](#melos---v700-dev0)
+
+Packages with other changes:
+
+ - There are no other changes in this release.
+
+---
+
+#### `melos` - `v7.0.0-dev.0`
+
+ - **BREAKING** **FEAT**: Migrate to use the Pub workspaces feature ([#816](https://github.com/invertase/melos/issues/816)). ([3602d904](https://github.com/invertase/melos/commit/3602d904fbde7f3fc7d918ab8413483efef42b20))
+
+
+## 2025-01-04
+
+### Changes
+
+---
+
+Packages with breaking changes:
+
+ - There are no breaking changes in this release.
+
+Packages with other changes:
+
+ - [`melos` - `v6.3.0`](#melos---v630)
+
+---
+
+#### `melos` - `v6.3.0`
+
+ - **REFACTOR**: Use the pubspec_parse package for parsing ([#794](https://github.com/invertase/melos/issues/794)). ([df0c2940](https://github.com/invertase/melos/commit/df0c29407dfcbc402eb8a2f4fff84b0e4f445e37))
+ - **FIX**: too many open files while creating a workspace ([#804](https://github.com/invertase/melos/issues/804)). ([db822814](https://github.com/invertase/melos/commit/db822814294528875f7f388d4a1ad4dec3892b07))
+ - **FIX**: failing tests due to Flutter upgrade to version 3.27. ([#812](https://github.com/invertase/melos/issues/812)). ([0d1e044b](https://github.com/invertase/melos/commit/0d1e044bacec6b746941edfc2c6098fe708e2631))
+ - **FIX**: Fixed output tests that failed on some terminals ([#799](https://github.com/invertase/melos/issues/799)). ([e074cb04](https://github.com/invertase/melos/commit/e074cb0444445bc76470fd972535f31ee968a9c8))
+ - **FIX**: Simple hosted dependencies should be inlined ([#795](https://github.com/invertase/melos/issues/795)). ([83909a7f](https://github.com/invertase/melos/commit/83909a7f6a21690a9de4124e94ea9dabeb2e9208))
+ - **FIX**: Use `/` in relative path for Windows ([#788](https://github.com/invertase/melos/issues/788)). ([7f96e02e](https://github.com/invertase/melos/commit/7f96e02ead4c9f04e477c4c4c6e3c7714a98a5df))
+ - **FIX**: Run `flutter analyze` for flutter packages ([#793](https://github.com/invertase/melos/issues/793)). ([e804822d](https://github.com/invertase/melos/commit/e804822ded17522b3a185c4f2c037b1d71afbcd5))
+ - **FIX**: Use text script rather than fixed script paths ([#789](https://github.com/invertase/melos/issues/789)). ([bc2da5fd](https://github.com/invertase/melos/commit/bc2da5fdf5cd982ecc115bc0dbe0804be1e96a86))
+ - **FEAT**: Init command ([#780](https://github.com/invertase/melos/issues/780)). ([399a0164](https://github.com/invertase/melos/commit/399a0164d70820cb372b8b60857e430808e931d7))
+ - **DOCS**: Add API Dash to list of projects using Melos ([#786](https://github.com/invertase/melos/issues/786)). ([0572dba1](https://github.com/invertase/melos/commit/0572dba1c7739120c00ceacfd1cd7b3ee421c420))
+ - **DOCS**: wrong melos action link ([#772](https://github.com/invertase/melos/issues/772)). ([7e16f26c](https://github.com/invertase/melos/commit/7e16f26c57cc149b960b7ce330672219a14d8c43))
+ - **DOCS**: Add link to the Melos GitHub action ([#771](https://github.com/invertase/melos/issues/771)). ([76f2264a](https://github.com/invertase/melos/commit/76f2264a7c8728c923484baea6352b32024e90c1))
+
+
+## 2024-10-07
+
+### Changes
+
+---
+
+Packages with breaking changes:
+
+ - There are no breaking changes in this release.
+
+Packages with other changes:
+
+ - [`melos` - `v6.2.0`](#melos---v620)
+
+---
+
+#### `melos` - `v6.2.0`
+
+ - **FIX**: Propagate error code when fail fast is enabled ([#762](https://github.com/invertase/melos/issues/762)). ([ed6243bd](https://github.com/invertase/melos/commit/ed6243bd0882c61d82a79a35c95e1e1e9e874921))
+ - **FIX**: Don't deadlock on cycle exec with order dependents ([#761](https://github.com/invertase/melos/issues/761)). ([cec45d7d](https://github.com/invertase/melos/commit/cec45d7d6f042b7a173ea520a813a94fe445cab7))
+ - **FIX**: maintain working directory across script steps ([#711](https://github.com/invertase/melos/issues/711)). ([a3784c16](https://github.com/invertase/melos/commit/a3784c16bd6337b3baba1953b5e52cb33fa25f43))
+ - **FIX**: Flaky tests when run in GitHub Actions Workflow ([#733](https://github.com/invertase/melos/issues/733)). ([4a67d098](https://github.com/invertase/melos/commit/4a67d098686b4724cae23d24bdab46be820aa0b3))
+ - **FEAT**: Allow overriding `enforceLockfile` with `--no-enforce-lockfile` ([#758](https://github.com/invertase/melos/issues/758)). ([86647f1d](https://github.com/invertase/melos/commit/86647f1d2eea7ce66063fe44b0af70dc633a093e))
+ - **FEAT**: Expose `pub get`'s `--offline` flag on the bootstrap command ([#756](https://github.com/invertase/melos/issues/756)). ([b432749c](https://github.com/invertase/melos/commit/b432749c3214bd106b0c67173740d6e23eca9e23))
+ - **DOCS**: Add signals to list of projects using Melos ([#754](https://github.com/invertase/melos/issues/754)). ([dc05a52c](https://github.com/invertase/melos/commit/dc05a52c21796dd1c2455d0ddc2f2981b88e8d9c))
+ - **DOCS**: Add PowerSync to list of projects using Melos ([#746](https://github.com/invertase/melos/issues/746)). ([24fbcec1](https://github.com/invertase/melos/commit/24fbcec134773d5a61ffaa07a8b84f4daf3bbe41))
+
+
+## 2024-06-17
+
+### Changes
+
+---
+
+Packages with breaking changes:
+
+ - There are no breaking changes in this release.
+
+Packages with other changes:
+
+ - [`melos` - `v6.1.0`](#melos---v610)
+
+---
+
+#### `melos` - `v6.1.0`
+
+ - **FIX**: `updateDependentsVersions` disabled with packages still mentioned in changelogs ([#719](https://github.com/invertase/melos/issues/719)). ([0ad8f585](https://github.com/invertase/melos/commit/0ad8f5851333bc5d197132f9e7ec7c0a8b1ca45a))
+ - **FIX**: tryParse line-length to int when it's not already an integer ([#708](https://github.com/invertase/melos/issues/708)). ([35ef462d](https://github.com/invertase/melos/commit/35ef462d7e9621bfd05bd3a7825a20acee91a289))
+ - **FEAT**: Filter by category ([#727](https://github.com/invertase/melos/issues/727)). ([71bc6104](https://github.com/invertase/melos/commit/71bc61043b74ccd5e7c529d7e7a055ff9be1b517))
+ - **FEAT**: added Alice to readme ([#725](https://github.com/invertase/melos/issues/725)). ([7b7a10e0](https://github.com/invertase/melos/commit/7b7a10e0596dad8f6bce3ddf23e9a57c4751daf3))
+ - **FEAT**: `changelogFormat` configuration, add `includeDate` boolean ([#720](https://github.com/invertase/melos/issues/720)). ([fed343b2](https://github.com/invertase/melos/commit/fed343b2dd58e9a30b29244c38f8ba815a104082))
+ - **FEAT**: add config for the format command ([#709](https://github.com/invertase/melos/issues/709)). ([5a6ec6f7](https://github.com/invertase/melos/commit/5a6ec6f708fe27e2fa608698340d36adf3e854ac))
+
+
+## 2024-04-24
+
+### Changes
+
+---
+
+Packages with breaking changes:
+
+ - [`melos` - `v6.0.0`](#melos---v600)
+
+Packages with other changes:
+
+ - There are no other changes in this release.
+
+---
+
+#### `melos` - `v6.0.0`
+
+ - **FIX**: Only enforce lockfile when it exists ([#704](https://github.com/invertase/melos/issues/704)). ([be94adac](https://github.com/invertase/melos/commit/be94adacac71d8263079641229640932b387891a))
+ - **FEAT**: option to provide dependencies related filters from yaml ([#698](https://github.com/invertase/melos/issues/698)). ([92be9858](https://github.com/invertase/melos/commit/92be9858cd64f35cce2d3a3ba2f4184cd32d0955))
+ - **FEAT**: add `--line-length` option to `melos format` command ([#689](https://github.com/invertase/melos/issues/689)). ([048ab301](https://github.com/invertase/melos/commit/048ab301ca0f01f99d198c3ba6ca0f3c951078cf))
+ - **DOCS**: fix misalignment in readme ([#699](https://github.com/invertase/melos/issues/699)). ([5e588ef9](https://github.com/invertase/melos/commit/5e588ef92d5e5ad25bb99be5a279305c4c07e9a9))
+ - **BREAKING** **FIX**: Make `melos analyze` always use `dart analyze` ([#695](https://github.com/invertase/melos/issues/695)). ([2b16e360](https://github.com/invertase/melos/commit/2b16e3609bf3e00d15c42968dfbaeac2663a48c9))
+
+
+## 2024-04-01
+
+### Changes
+
+---
+
+Packages with breaking changes:
+
+ - There are no breaking changes in this release.
+
+Packages with other changes:
+
+ - [`melos` - `v5.3.0`](#melos---v530)
+
+---
+
+#### `melos` - `v5.3.0`
+
+ - **FIX**: melos analyze concurrency flag log output ([#678](https://github.com/invertase/melos/issues/678)). ([2ee575e4](https://github.com/invertase/melos/commit/2ee575e4f2087717d15600c4ab4228df1a7c1c30))
+ - **FEAT**: support for melos command within script steps ([#683](https://github.com/invertase/melos/issues/683)). ([a1da197f](https://github.com/invertase/melos/commit/a1da197fb00dd9b174a30593533ae79e48bcbafe))
+ - **FEAT**: add support for `melos bs --skip-linking` ([#684](https://github.com/invertase/melos/issues/684)). ([699fedc0](https://github.com/invertase/melos/commit/699fedc0cc0ba1b8d9b8a39638761f4ab1764b6a))
+ - **FEAT**: add support for Azure DevOps repository ([#681](https://github.com/invertase/melos/issues/681)). ([16fc890d](https://github.com/invertase/melos/commit/16fc890d1d5ee40d47be6f9dfd565de927f1b32c))
+ - **FEAT**: Change concurrent log to sequential log ([#679](https://github.com/invertase/melos/issues/679)). ([15b1518b](https://github.com/invertase/melos/commit/15b1518b2af185aa1c87fe60f1178844826c5091))
+
+
+## 2024-03-25
+
+### Changes
+
+---
+
+Packages with breaking changes:
+
+ - There are no breaking changes in this release.
+
+Packages with other changes:
+
+ - [`melos` - `v5.2.2`](#melos---v522)
+
+---
+
+#### `melos` - `v5.2.2`
+
+ - **FIX**: revisionRange not resolving to correct diff ([#674](https://github.com/invertase/melos/issues/674)). ([289a2f73](https://github.com/invertase/melos/commit/289a2f73101569a802064c758e9b2e4210349272))
+
+
+## 2024-03-21
+
+### Changes
+
+---
+
+Packages with breaking changes:
+
+ - There are no breaking changes in this release.
+
+Packages with other changes:
+
+ - [`melos` - `v5.2.1`](#melos---v521)
+
+---
+
+#### `melos` - `v5.2.1`
+
+ - **FIX**: exec command with failFast should fail immediately ([#665](https://github.com/invertase/melos/issues/665)). ([a5ff6da9](https://github.com/invertase/melos/commit/a5ff6da983130299a2170cb38b6bf1c19ac77cc9))
+ - **FIX**: fix diff functionality ([#669](https://github.com/invertase/melos/issues/669)). ([08d6ec2a](https://github.com/invertase/melos/commit/08d6ec2a97df386e69b2fc4baa736f152f1f3ab8))
+
+
+## 2024-03-19
+
+### Changes
+
+---
+
+Packages with breaking changes:
+
+ - There are no breaking changes in this release.
+
+Packages with other changes:
+
+ - [`melos` - `v5.2.0`](#melos---v520)
+
+---
+
+#### `melos` - `v5.2.0`
+
+ - **FEAT**: add support for combining scripts ([#664](https://github.com/invertase/melos/issues/664)). ([aabf21c5](https://github.com/invertase/melos/commit/aabf21c5847f68b364098b9458bae053292795c8))
+
+
+## 2024-03-13
+
+### Changes
+
+---
+
+Packages with breaking changes:
+
+ - There are no breaking changes in this release.
+
+Packages with other changes:
+
+ - [`melos` - `v5.1.0`](#melos---v510)
+
+---
+
+#### `melos` - `v5.1.0`
+
+ - **FEAT**: format built in command ([#657](https://github.com/invertase/melos/issues/657)). ([e0491f54](https://github.com/invertase/melos/commit/e0491f5466f79ce56cd010f5970a783c34756480))
+
+
+## 2024-03-12
+
+### Changes
+
+---
+
+Packages with breaking changes:
+
+ - [`melos` - `v5.0.0`](#melos---v500)
+
+Packages with other changes:
+
+ - There are no other changes in this release.
+
+---
+
+#### `melos` - `v5.0.0`
+
+ - **REFACTOR**: Move `CommandConfigs` and `LifecycleHooks` to their own directories ([#652](https://github.com/invertase/melos/issues/652)). ([95f23716](https://github.com/invertase/melos/commit/95f23716b33152afb73a1b64a8302138fcbff6f7))
+ - **REFACTOR**: move environment variable related strings into one class ([#648](https://github.com/invertase/melos/issues/648)). ([2db32ec5](https://github.com/invertase/melos/commit/2db32ec568e64440ee03a85321f2ba60457d7012))
+ - **FIX**: use `git pull --tags` instead of `git fetch --tags` ([#468](https://github.com/invertase/melos/issues/468)). ([109f5f98](https://github.com/invertase/melos/commit/109f5f985dc65172f6392285cd0b239bd0b43fff))
+ - **FIX**: typo on help description of bootstrap --enforce-lockfile ([#636](https://github.com/invertase/melos/issues/636)). ([a5247561](https://github.com/invertase/melos/commit/a5247561804a1a030325366bcd05c6a6a7a5c7dd))
+ - **FEAT**: Add lifecycle hooks for `publish` ([#656](https://github.com/invertase/melos/issues/656)). ([ed826b39](https://github.com/invertase/melos/commit/ed826b39761039ba545d3ae7b18f491726d7ebe1))
+ - **FEAT**: built-in melos command for analyzing projects ([#655](https://github.com/invertase/melos/issues/655)). ([93db45df](https://github.com/invertase/melos/commit/93db45dffc0f8b23d97e11d67a4b9cc7b4818737))
+ - **FEAT**: Default to number of processors for exec concurrency ([#654](https://github.com/invertase/melos/issues/654)). ([43c6ddb7](https://github.com/invertase/melos/commit/43c6ddb72a89de1eed08193388996c9f9c15e1c2))
+ - **DOCS**: add more projects using melos ([#649](https://github.com/invertase/melos/issues/649)). ([30611f40](https://github.com/invertase/melos/commit/30611f40e14f34fce178fffebd44fff83f10fa50))
+ - **BREAKING** **FEAT**: make run script use melos_packages env variable scope ([#640](https://github.com/invertase/melos/issues/640)). ([e12ff57e](https://github.com/invertase/melos/commit/e12ff57efd71baae5eea20252d02894ec8be712e))
+
+
+## 2024-02-06
+
+### Changes
+
+---
+
+Packages with breaking changes:
+
+ - [`melos` - `v4.1.0`](#melos---v410)
+
+Packages with other changes:
+
+ - There are no other changes in this release.
+
+---
+
+#### `melos` - `v4.1.0`
+
+ - **FIX**: typo on help description of bootstrap --enforce-lockfile ([#636](https://github.com/invertase/melos/issues/636)). ([a5247561](https://github.com/invertase/melos/commit/a5247561804a1a030325366bcd05c6a6a7a5c7dd))
+ - **BREAKING** **FEAT**: make run script use melos_packages env variable scope ([#640](https://github.com/invertase/melos/issues/640)). ([e12ff57e](https://github.com/invertase/melos/commit/e12ff57efd71baae5eea20252d02894ec8be712e))
+
+
+## 2024-01-11
+
+### Changes
+
+---
+
+Packages with breaking changes:
+
+ - [`melos` - `v4.0.0`](#melos---v400)
+
+---
+
+#### `melos` - `v4.0.0`
+
+ - **FIX**: Compare with correct version when publishing ([#633](https://github.com/invertase/melos/issues/633)). ([9c4cd2eb](https://github.com/invertase/melos/commit/9c4cd2eb470de79eaa026ce8449d559f0a161374))
+ - **FIX**: Expose script api ([#573](https://github.com/invertase/melos/issues/573)). ([bb971018](https://github.com/invertase/melos/commit/bb9710185a735e7176646e509433f4c033a2c774))
+ - **FEAT**: Add `git-commit-version` flag to control commit creation ([#628](https://github.com/invertase/melos/issues/628)). ([cca71872](https://github.com/invertase/melos/commit/cca7187233727aaf84bd83bf41bca11c5f962372))
+ - **FEAT**: support authenticating private pub repository ([#627](https://github.com/invertase/melos/issues/627)). ([dddc7b31](https://github.com/invertase/melos/commit/dddc7b31b2bb2588c23efc6b5a43ce5acfab1329))
+ - **FEAT**: Add enforce lockfile bootstrap command config ([#600](https://github.com/invertase/melos/issues/600)). ([b9c6d0cc](https://github.com/invertase/melos/commit/b9c6d0ccd55698d244dd856c26767e5e3a9852ac))
+ - **FEAT**: add "--no-example" arg to "pub get " command for melos bootstrap ([#604](https://github.com/invertase/melos/issues/604)). ([8b69f51f](https://github.com/invertase/melos/commit/8b69f51fd71eec01ebeba7bf5e3f0a691feac986))
+ - **DOCS**: Add flutter_web_auth_2 to melos project list ([#624](https://github.com/invertase/melos/issues/624)). ([bbede2d2](https://github.com/invertase/melos/commit/bbede2d2a795f37b5db2468c3e130278b09c7bea))
+ - **BREAKING** **FIX**: Create commit when `--no-git-tag-version` is used ([#625](https://github.com/invertase/melos/issues/625)). ([b89133dc](https://github.com/invertase/melos/commit/b89133dc79e56920727451e409b3adc1d2e666ee))
+
+
+## 2023-12-04
+
+### Changes
+
+---
+
+Packages with breaking changes:
+
+ - There are no breaking changes in this release.
+
+Packages with other changes:
+
+ - [`melos` - `v3.4.0`](#melos---v340)
+
+---
+
+#### `melos` - `v3.4.0`
+
+ - **FEAT**: add support for bitbucket repository url ([#608](https://github.com/invertase/melos/issues/608)). ([6f3ea624](https://github.com/invertase/melos/commit/6f3ea62466547ecddf309a0a4d387ffdb3168a13))
+
+
+## 2023-12-01
+
+### Changes
+
+---
+
+Packages with breaking changes:
+
+ - There are no breaking changes in this release.
+
+Packages with other changes:
+
+ - [`melos` - `v3.3.0`](#melos---v330)
+
+---
+
+#### `melos` - `v3.3.0`
+
+ - **REFACTOR**: Remove unnecessary parenthesis to get analyzer green ([#602](https://github.com/invertase/melos/issues/602)). ([d368b439](https://github.com/invertase/melos/commit/d368b439941cb21a46f5f2681c70c5e438b301bf))
+ - **FIX**: `.idea/modules.xml` should always uses `/` instead of `\` ([#582](https://github.com/invertase/melos/issues/582)). ([5d49c4a6](https://github.com/invertase/melos/commit/5d49c4a6c7d227a56935366e9bf1c9aaf5b61122))
+ - **FEAT**: add option that allows to include commit bodies in changelog ([#606](https://github.com/invertase/melos/issues/606)). ([524e58a1](https://github.com/invertase/melos/commit/524e58a1d2c72d39b62e355997d06134c9342b53))
+ - **DOCS**(melos): add `coverde` to projects using Melos ([#562](https://github.com/invertase/melos/issues/562)). ([6a64b059](https://github.com/invertase/melos/commit/6a64b0595d01003145049125226fa2db2c45c918))
+
+
+## 2023-10-24
+
+### Changes
+
+---
+
+Packages with breaking changes:
+
+ - There are no breaking changes in this release.
+
+Packages with other changes:
+
+ - [`melos` - `v3.2.0`](#melos---v320)
+
+---
+
+#### `melos` - `v3.2.0`
+
+ - **REFACTOR**: fix analyzer issues ([#590](https://github.com/invertase/melos/issues/590)). ([2f19770e](https://github.com/invertase/melos/commit/2f19770eee9deff097d26202bece72bd6b2127a1))
+ - **FEAT**: support syncing common dependency versions ([#526](https://github.com/invertase/melos/issues/526)). ([39e5e499](https://github.com/invertase/melos/commit/39e5e499d71e95cf7794ae724ab2ccd3bb4e9fd5))
+ - **FEAT**: Expose `Changelog` and `ManualVersionChange` ([#538](https://github.com/invertase/melos/issues/538)). ([b049ed89](https://github.com/invertase/melos/commit/b049ed897402921a5b0f3b818e49b47e3b3bf4cf))
+ - **DOCS**: added link to `atproto.dart` ([#544](https://github.com/invertase/melos/issues/544)). ([aa891d82](https://github.com/invertase/melos/commit/aa891d8268f0aba7335ca274af747a15c9e72848))
+ - **DOCS**: growerp also use melos ([#551](https://github.com/invertase/melos/issues/551)). ([c679622f](https://github.com/invertase/melos/commit/c679622f1279107e31ec1d10d2b21c18877f7771))
+
+
+## 2023-07-14
+
+### Changes
+
+---
+
+Packages with breaking changes:
+
+ - There are no breaking changes in this release.
+
+Packages with other changes:
+
+ - [`melos` - `v3.1.1`](#melos---v311)
+
+---
+
+#### `melos` - `v3.1.1`
+
+ - **FIX**: pass extra args to exec scripts ([#540](https://github.com/invertase/melos/issues/540)). ([27b2275d](https://github.com/invertase/melos/commit/27b2275d5f44cbc3b93e780c88618363afca0b55))
+ - **FIX**: generate correct path in `modules.xml` for package at workspace root ([#539](https://github.com/invertase/melos/issues/539)). ([712ae6c3](https://github.com/invertase/melos/commit/712ae6c332d2f50e9b62917f4ffeb9debb1279cc))
+
+
+## 2023-05-22
+
+### Changes
+
+---
+
+Packages with breaking changes:
+
+ - There are no breaking changes in this release.
+
+Packages with other changes:
+
+ - [`melos` - `v3.1.0`](#melos---v310)
+
+---
+
+#### `melos` - `v3.1.0`
+
+ - **REFACTOR**: tidy up workspace name validation and fix docs ([#522](https://github.com/invertase/melos/issues/522)). ([3d76097d](https://github.com/invertase/melos/commit/3d76097db131b760368766ecbf7e133f2e1db23e))
+ - **FEAT**: improve output for multi-line scripts ([#524](https://github.com/invertase/melos/issues/524)). ([b4d71300](https://github.com/invertase/melos/commit/b4d7130006d7cdc04967c6b42f41850f56f71229))
+ - **FEAT**: set exit code to 1 when detecting cycles in `melos list` ([#523](https://github.com/invertase/melos/issues/523)). ([e2863e6f](https://github.com/invertase/melos/commit/e2863e6f043702da4d1b12d0ac837211beb8977e))
+ - **DOCS**: add `NetGlade/auto_mappr` to user of melos ([#508](https://github.com/invertase/melos/issues/508)). ([60c86195](https://github.com/invertase/melos/commit/60c86195c176d1b06f0bd983d903593465a15ce7))
+
+
+## 2023-03-30
+
+### Changes
+
+---
+
+Packages with breaking changes:
+
+ - There are no breaking changes in this release.
+
+Packages with other changes:
+
+ - [`conventional_commit` - `v0.6.0+1`](#conventional_commit---v0601)
+ - [`melos` - `v3.0.1`](#melos---v301)
+
+---
+
+#### `conventional_commit` - `v0.6.0+1`
+
+ - **FIX**: commit scopes that contain "-" should be treated as valid scopes ([#496](https://github.com/invertase/melos/issues/496)). ([615c208e](https://github.com/invertase/melos/commit/615c208e08bb6c7a4c159fe0a06561b0b42edd50))
+
+#### `melos` - `v3.0.1`
+
+ - **DOCS**: pin docs to latest Melos release ([#373](https://github.com/invertase/melos/issues/373)). ([d1fd8d1f](https://github.com/invertase/melos/commit/d1fd8d1ff7f785fb625e34da65b2662bcabfbb60))
+
+
 ## 2023-03-10
 
 ### Changes

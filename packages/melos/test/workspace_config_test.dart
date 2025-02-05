@@ -1,28 +1,13 @@
-/*
- * Copyright (c) 2016-present Invertase Limited & Contributors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this library except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 import 'package:melos/melos.dart';
+import 'package:melos/src/command_configs/command_configs.dart';
 import 'package:melos/src/common/git_repository.dart';
 import 'package:melos/src/common/glob.dart';
 import 'package:melos/src/common/platform.dart';
-import 'package:melos/src/scripts.dart';
-import 'package:melos/src/workspace_configs.dart';
+import 'package:melos/src/workspace_config.dart';
 import 'package:test/test.dart';
 
 import 'matchers.dart';
+import 'utils.dart';
 
 void main() {
   group('BootstrapCommandConfigs', () {
@@ -59,6 +44,7 @@ void main() {
             const {
               'runPubGetInParallel': false,
               'runPubGetOffline': true,
+              'enforceLockfile': true,
               'dependencyOverridePaths': ['a'],
             },
             workspacePath: '.',
@@ -66,8 +52,9 @@ void main() {
           BootstrapCommandConfigs(
             runPubGetInParallel: false,
             runPubGetOffline: true,
+            enforceLockfile: true,
             dependencyOverridePaths: [
-              createGlob('a', currentDirectoryPath: '.')
+              createGlob('a', currentDirectoryPath: '.'),
             ],
           ),
         );
@@ -155,7 +142,7 @@ void main() {
                   'packageFilters': {'flutter': true},
                   'description': 'Changelog for all foo packages.',
                 }
-              ]
+              ],
             },
             workspacePath: '.',
           ),
@@ -171,6 +158,39 @@ void main() {
                 path: 'FOO_CHANGELOG.md',
                 packageFilters: PackageFilters(flutter: true),
                 description: 'Changelog for all foo packages.',
+              ),
+            ],
+          ),
+        );
+      });
+
+      test('can decode packageFilters values', () {
+        expect(
+          VersionCommandConfigs.fromYaml(
+            const {
+              'changelogs': [
+                {
+                  'path': 'FOO_CHANGELOG.md',
+                  'packageFilters': {
+                    'flutter': true,
+                    'includeDependencies': true,
+                    'includeDependents': true,
+                  },
+                }
+              ],
+            },
+            workspacePath: '.',
+          ),
+          VersionCommandConfigs(
+            aggregateChangelogs: [
+              AggregateChangelogConfig.workspace(),
+              AggregateChangelogConfig(
+                path: 'FOO_CHANGELOG.md',
+                packageFilters: PackageFilters(
+                  flutter: true,
+                  includeDependencies: true,
+                  includeDependents: true,
+                ),
               ),
             ],
           ),
@@ -215,7 +235,7 @@ void main() {
             const {
               'bootstrap': {
                 'runPubGetInParallel': true,
-              }
+              },
             },
             workspacePath: '.',
           ),
@@ -236,7 +256,7 @@ void main() {
             const {
               'bootstrap': {
                 'runPubGetOffline': true,
-              }
+              },
             },
             workspacePath: '.',
           ),
@@ -248,6 +268,23 @@ void main() {
         );
       });
 
+      test('can decode `bootstrap` with pub get --enforce-lockfile', () {
+        expect(
+          CommandConfigs.fromYaml(
+            const {
+              'bootstrap': {
+                'enforceLockfile': true,
+              },
+            },
+            workspacePath: '.',
+          ),
+          const CommandConfigs(
+            bootstrap: BootstrapCommandConfigs(
+              enforceLockfile: true,
+            ),
+          ),
+        );
+      });
       test('can decode `version`', () {
         expect(
           CommandConfigs.fromYaml(
@@ -256,7 +293,7 @@ void main() {
                 'message': 'Hello world',
                 'branch': 'main',
                 'linkToCommits': true,
-              }
+              },
             },
             workspacePath: '.',
           ),
@@ -300,12 +337,24 @@ void main() {
       );
     });
 
+    test('executeInTerminal is true by default', () {
+      expect(
+        IDEConfigs.empty.intelliJ.executeInTerminal,
+        true,
+      );
+    });
+
     group('fromYaml', () {
       test('supports empty map', () {
         expect(
           IDEConfigs.fromYaml(const {}),
           isA<IDEConfigs>()
-              .having((e) => e.intelliJ.enabled, 'intelliJ.enabled', true),
+              .having((e) => e.intelliJ.enabled, 'intelliJ.enabled', true)
+              .having(
+                (e) => e.intelliJ.executeInTerminal,
+                'intelliJ.executeInTerminal',
+                true,
+              ),
         );
       });
 
@@ -429,7 +478,7 @@ void main() {
               'exec': {
                 'concurrency': 1,
                 'failFast': true,
-                'orderDependents': true
+                'orderDependents': true,
               },
             },
           }),
@@ -487,7 +536,7 @@ void main() {
       () {
         expect(
           () => MelosWorkspaceConfig(
-            name: '',
+            name: 'melos_test',
             packages: const [],
             commands: const CommandConfigs(
               version: VersionCommandConfigs(linkToCommits: true),
@@ -499,28 +548,31 @@ void main() {
       },
     );
 
-    test('accepts commands.version.linkToCommits == true if repository exists',
-        () {
-      expect(
-        () => MelosWorkspaceConfig(
-          name: '',
-          repository: GitHubRepository(owner: 'invertase', name: 'melos'),
-          packages: const [],
-          commands: const CommandConfigs(
-            version: VersionCommandConfigs(linkToCommits: true),
+    test(
+      'accepts commands.version.linkToCommits == true if repository exists',
+      () async {
+        final workspace = await createTemporaryWorkspace(workspacePackages: []);
+        expect(
+          () => MelosWorkspaceConfig(
+            name: 'melos_test',
+            repository: GitHubRepository(owner: 'invertase', name: 'melos'),
+            packages: const [],
+            commands: const CommandConfigs(
+              version: VersionCommandConfigs(linkToCommits: true),
+            ),
+            path: workspace.path,
           ),
-          path: testWorkspacePath,
-        ),
-        returnsNormally,
-      );
-    });
+          returnsNormally,
+        );
+      },
+    );
 
     group('fromYaml', () {
       test('throws if name is missing', () {
         expect(
           () => MelosWorkspaceConfig.fromYaml(
             createYamlMap({
-              'packages': <Object?>['*']
+              'packages': <Object?>['*'],
             }),
             path: testWorkspacePath,
           ),
@@ -570,22 +622,23 @@ void main() {
         testName('hello=world');
       });
 
-      test('accepts valid dart package name', () {
+      test('accepts valid dart package name', () async {
+        final workspace = await createTemporaryWorkspace(workspacePackages: []);
         MelosWorkspaceConfig.fromYaml(
           createYamlMap({'name': 'hello_world'}, defaults: configMapDefaults),
-          path: testWorkspacePath,
+          path: workspace.path,
         );
         MelosWorkspaceConfig.fromYaml(
           createYamlMap({'name': 'hello2'}, defaults: configMapDefaults),
-          path: testWorkspacePath,
+          path: workspace.path,
         );
         MelosWorkspaceConfig.fromYaml(
           createYamlMap({'name': 'HELLO'}, defaults: configMapDefaults),
-          path: testWorkspacePath,
+          path: workspace.path,
         );
         MelosWorkspaceConfig.fromYaml(
           createYamlMap({'name': 'hello-world'}, defaults: configMapDefaults),
-          path: testWorkspacePath,
+          path: workspace.path,
         );
       });
 
@@ -617,7 +670,7 @@ void main() {
           () => MelosWorkspaceConfig.fromYaml(
             createYamlMap(
               {
-                'packages': [42]
+                'packages': [42],
               },
               defaults: configMapDefaults,
             ),
@@ -658,7 +711,7 @@ void main() {
           () => MelosWorkspaceConfig.fromYaml(
             createYamlMap(
               {
-                'ignore': [42]
+                'ignore': [42],
               },
               defaults: configMapDefaults,
             ),
@@ -695,13 +748,14 @@ void main() {
         );
       });
 
-      test('accepts a GitHub repository', () {
+      test('accepts a GitHub repository', () async {
+        final workspace = await createTemporaryWorkspace(workspacePackages: []);
         final config = MelosWorkspaceConfig.fromYaml(
           createYamlMap(
             {'repository': 'https://github.com/invertase/melos'},
             defaults: configMapDefaults,
           ),
-          path: testWorkspacePath,
+          path: workspace.path,
         );
         final repository = config.repository! as GitHubRepository;
 
@@ -728,5 +782,5 @@ Map<String, Object?> createYamlMap(
 /// Default values used by [MelosWorkspaceConfig.fromYaml].
 const configMapDefaults = {
   'name': 'mono-root',
-  'packages': ['packages/*'],
+  'workspace': <String>[],
 };

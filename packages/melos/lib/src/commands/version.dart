@@ -12,6 +12,7 @@ mixin _VersionMixin on _RunMixin {
     bool updateDependentsConstraints = true,
     bool updateDependentsVersions = true,
     bool gitTag = true,
+    bool gitCommit = true,
     bool? releaseUrl,
     String? message,
     bool force = false,
@@ -48,7 +49,7 @@ mixin _VersionMixin on _RunMixin {
       packageFilters: packageFilters?.copyWithDiff(null),
     );
 
-    return _runLifecycle(workspace, _CommandWithLifecycle.version, () {
+    return _runLifecycle(workspace, CommandWithLifecycle.version, () {
       return _version(
         workspace: workspace,
         global: global,
@@ -59,6 +60,7 @@ mixin _VersionMixin on _RunMixin {
         updateDependentsConstraints: updateDependentsConstraints,
         updateDependentsVersions: updateDependentsVersions,
         gitTag: gitTag,
+        gitCommit: gitCommit,
         releaseUrl: releaseUrl,
         message: message,
         force: force,
@@ -81,6 +83,7 @@ mixin _VersionMixin on _RunMixin {
     bool updateDependentsConstraints = true,
     bool updateDependentsVersions = true,
     bool gitTag = true,
+    bool gitCommit = true,
     bool? releaseUrl,
     String? message,
     bool force = false,
@@ -143,7 +146,7 @@ mixin _VersionMixin on _RunMixin {
       for (final package in workspace.filteredPackages.values)
         if (!packagesToManuallyVersion.contains(package))
           if (packagesWithVersionableCommits.contains(package.name))
-            if (!asStableRelease || !package.version.isPreRelease) package
+            if (!asStableRelease || !package.version.isPreRelease) package,
     };
     final packagesToVersion = {
       ...packagesToManuallyVersion,
@@ -154,7 +157,9 @@ mixin _VersionMixin on _RunMixin {
 
     if (asStableRelease) {
       for (final package in workspace.filteredPackages.values) {
-        if (!package.version.isPreRelease) continue;
+        if (!package.version.isPreRelease) {
+          continue;
+        }
 
         pendingPackageUpdates.add(
           MelosPendingPackageUpdate(
@@ -262,6 +267,11 @@ mixin _VersionMixin on _RunMixin {
     );
 
     for (final package in dependentPackagesToVersion) {
+      // If updateDependentsVersions is set to false, we do not perform updates.
+      if (!updateDependentsVersions) {
+        break;
+      }
+
       final packageHasPendingUpdate = pendingPackageUpdates.any(
         (packageToVersion) => packageToVersion.package.name == package.name,
       );
@@ -349,12 +359,12 @@ mixin _VersionMixin on _RunMixin {
       logger.newLine();
       await _runLifecycleScript(
         preCommit,
-        command: _CommandWithLifecycle.version,
+        command: CommandWithLifecycle.version,
       );
       logger.newLine();
     }
 
-    if (gitTag) {
+    if (gitCommit) {
       await _gitStageChanges(
         workspace,
         pendingPackageUpdates,
@@ -366,13 +376,14 @@ mixin _VersionMixin on _RunMixin {
         commitMessageTemplate,
         updateDependentsVersions: updateDependentsVersions,
       );
+    }
+
+    if (gitTag && gitCommit) {
       await _gitTagChanges(
         pendingPackageUpdates,
         updateDependentsVersions: updateDependentsVersions,
       );
-    }
 
-    if (gitTag) {
       logger.success(
         'Versioning successful. '
         'Ensure you push your git changes and tags (if applicable) via '
@@ -394,7 +405,7 @@ mixin _VersionMixin on _RunMixin {
 
       if (repository == null) {
         logger.warning(
-          'No repository configured in melos.yaml to generate a '
+          'No repository configured in the pubspec.yaml file to generate a '
           'release for.',
         );
       } else if (repository is! SupportsManualRelease) {
@@ -423,23 +434,9 @@ mixin _VersionMixin on _RunMixin {
     final pubspec = pubspecPathForDirectory(package.path);
     final contents = await readTextFileAsync(pubspec);
 
-    final updatedContents =
-        contents.replaceAllMapped(versionReplaceRegex, (match) {
-      return '${match.group(1)}$version${match.group(3)}';
-    });
-
-    // Sanity check that contents actually changed.
-    if (contents == updatedContents) {
-      logger.trace(
-        'Failed to update a pubspec.yaml version to $version for package '
-        '${package.name}. '
-        'You should probably report this issue with a copy of your '
-        'pubspec.yaml file.',
-      );
-      return;
-    }
-
-    await writeTextFileAsync(pubspec, updatedContents);
+    final editor = YamlEditor(contents);
+    editor.update(['version'], version.toString());
+    await writeTextFileAsync(pubspec, editor.toString());
   }
 
   Future<void> _setDependencyVersionForDependentPackage(
@@ -449,9 +446,9 @@ mixin _VersionMixin on _RunMixin {
     MelosWorkspace workspace,
   ) {
     final currentVersionConstraint =
-        (package.pubSpec.dependencies[dependencyName] ??
-                package.pubSpec.devDependencies[dependencyName])
-            ?._versionConstraint;
+        (package.pubspec.dependencies[dependencyName] ??
+                package.pubspec.devDependencies[dependencyName])
+            ?.versionConstraint;
     final hasExactVersionConstraint = currentVersionConstraint is Version;
     if (hasExactVersionConstraint) {
       // If the package currently has an exact version constraint, we respect
@@ -502,14 +499,13 @@ mixin _VersionMixin on _RunMixin {
     VersionRange dependencyVersion,
     MelosWorkspace workspace,
   ) async {
-    final dependencyReference = package.pubSpec.dependencies[dependencyName];
-    final devDependencyReference =
-        package.pubSpec.devDependencies[dependencyName];
+    final normalDependency = package.pubspec.dependencies[dependencyName];
+    final devDependency = package.pubspec.devDependencies[dependencyName];
+    final dependency = normalDependency ?? devDependency;
 
-    if (dependencyReference != null &&
-        dependencyReference is! GitReference &&
-        dependencyReference is! HostedReference &&
-        dependencyReference is! ExternalHostedReference) {
+    if (dependency != null &&
+        dependency is! GitDependency &&
+        dependency is! HostedDependency) {
       logger.warning(
         'Skipping updating dependency $dependencyName for package '
         '${package.name} - '
@@ -518,50 +514,36 @@ mixin _VersionMixin on _RunMixin {
       );
       return;
     }
-    if (devDependencyReference != null &&
-        devDependencyReference is! GitReference &&
-        devDependencyReference is! HostedReference &&
-        devDependencyReference is! ExternalHostedReference) {
-      logger.warning(
-        'Skipping updating dev dependency $dependencyName for package '
-        '${package.name} - '
-        'the version is a Map definition and is most likely a dependency that '
-        'is importing from a path or git remote.',
-      );
-      return;
-    }
 
-    final pubspec = pubspecPathForDirectory(package.path);
-    final contents = await readTextFileAsync(pubspec);
+    final pubspecPath = pubspecPathForDirectory(package.path);
+    final pubspecContent = await readTextFileAsync(pubspecPath);
 
-    final isExternalHostedReference =
-        dependencyReference is ExternalHostedReference ||
-            devDependencyReference is ExternalHostedReference;
-    final isGitReference = dependencyReference is GitReference ||
-        devDependencyReference is GitReference;
+    final isExternalHostedDependency =
+        dependency is HostedDependency && dependency.hosted != null;
+    final isGitDependency = dependency is GitDependency;
 
-    var updatedContents = contents;
-    if (isExternalHostedReference) {
-      updatedContents = contents.replaceAllMapped(
+    var updatedContents = pubspecContent;
+    if (isExternalHostedDependency) {
+      updatedContents = pubspecContent.replaceAllMapped(
         hostedDependencyVersionReplaceRegex(dependencyName),
         (match) => '${match.group(1)}$dependencyVersion',
       );
-    } else if (isGitReference &&
+    } else if (isGitDependency &&
         workspace.config.commands.version.updateGitTagRefs) {
-      updatedContents = contents.replaceAllMapped(
+      updatedContents = pubspecContent.replaceAllMapped(
         dependencyTagReplaceRegex(dependencyName),
         (match) => '${match.group(1)}$dependencyName-'
             'v${dependencyVersion.min ?? dependencyVersion.max!}',
       );
     } else {
-      updatedContents = contents.replaceAllMapped(
+      updatedContents = pubspecContent.replaceAllMapped(
         dependencyVersionReplaceRegex(dependencyName),
         (match) => '${match.group(1)}$dependencyVersion',
       );
     }
 
     // Sanity check that contents actually changed.
-    if (contents == updatedContents) {
+    if (pubspecContent == updatedContents) {
       logger.warning(
         'Failed to update dependency $dependencyName version to '
         '$dependencyVersion for package ${package.name}, '
@@ -571,7 +553,7 @@ mixin _VersionMixin on _RunMixin {
       return;
     }
 
-    await writeTextFileAsync(pubspec, updatedContents);
+    await writeTextFileAsync(pubspecPath, updatedContents);
   }
 
   void _logNewVersionTable(
@@ -662,7 +644,7 @@ mixin _VersionMixin on _RunMixin {
       if (updateDependentsConstraints) {
         await Future.forEach([
           ...pendingPackageUpdate.package.dependentsInWorkspace.values,
-          ...pendingPackageUpdate.package.devDependentsInWorkspace.values
+          ...pendingPackageUpdate.package.devDependentsInWorkspace.values,
         ], (package) {
           return _setDependencyVersionForDependentPackage(
             package,
@@ -710,7 +692,7 @@ mixin _VersionMixin on _RunMixin {
     final dateSlug = [
       today.year.toString(),
       today.month.toString().padLeft(2, '0'),
-      today.day.toString().padLeft(2, '0')
+      today.day.toString().padLeft(2, '0'),
     ].join('-');
 
     final packages =
@@ -758,7 +740,9 @@ mixin _VersionMixin on _RunMixin {
     final packageCommits = <String, List<RichGitCommit>>{};
     await Pool(10).forEach<Package, void>(workspace.filteredPackages.values,
         (package) async {
-      if (!versionPrivatePackages && package.isPrivate) return;
+      if (!versionPrivatePackages && package.isPrivate) {
+        return;
+      }
 
       final commits = await gitCommitsForPackage(
         package,
@@ -881,17 +865,5 @@ class PackageNotFoundException extends MelosException {
   @override
   String toString() {
     return 'PackageNotFoundException: The package $packageName';
-  }
-}
-
-extension on DependencyReference {
-  VersionConstraint? get _versionConstraint {
-    final self = this;
-    if (self is HostedReference) {
-      return self.versionConstraint;
-    } else if (self is ExternalHostedReference) {
-      return self.versionConstraint;
-    }
-    return null;
   }
 }

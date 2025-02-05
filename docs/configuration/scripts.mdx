@@ -1,7 +1,7 @@
 ---
 title: Defining workspace scripts
 description:
-  Defining workspace scripts in Melos via the `melos.yaml` scripts definition.
+  Defining workspace scripts in Melos via the `scripts` section in the root `pubspec.yaml`.
 ---
 
 # Workspace Scripts
@@ -9,12 +9,17 @@ description:
 Workspace scripts can be executed with `melos run` or will be executed as
 lifecycle hooks of some specific Melos commands.
 
+Remember, the scripts go in the `scripts` section under the `melos` section in
+the root `pubspec.yaml` file. For readability the `melos` section is omitted in
+all examples below except for the first one.
+
 With the simple syntax, only the name of the script and the command to execute
 needs to be specified:
 
 ```yaml
-scripts:
-  hello: echo 'Hello World'
+melos:
+  scripts:
+    hello: echo 'Hello World'
 ```
 
 The extends syntax allows for a more complex configuration of a script:
@@ -52,6 +57,28 @@ A short description, shown when using `melos run` with no argument.
 
 The command to execute.
 
+## steps
+
+Enables the combination of multiple scripts within a single script definition
+for complex workflows. In the example below, the pre-commit script is
+configured to sequentially invoke a simple command echo 'hello world',
+followed by Melos commands: format and analyze, each with specific arguments.
+
+```yaml
+scripts:
+  pre-commit:
+    description: pre-commit git hook script
+    steps:
+      - echo 'hello world'
+      - format --output none --set-exit-if-changed
+      - analyze --fatal-infos
+```
+
+Note: When utilizing the `steps`, it's important to understand that options 
+related to exec — such as concurrency — or `packageFilters` cannot be directly 
+applied within the steps configuration. Instead, these options should be 
+configured in the individual scripts that are being called as part of the step.
+
 ## exec
 
 Execute a script in multiple packages through `melos exec`.
@@ -84,8 +111,9 @@ filtering the packages to execute the command in.
 
 ### concurrency
 
-Defines the max concurrency value of how many packages will execute the command
-in at any one time. Defaults to `5`.
+Defines the maximum concurrency value, i.e., the maximum number of packages that
+the script will execute in concurrently at any given time. By default, this value
+is set to the number of processors available on the underlying machine.
 
 ### failFast
 
@@ -136,12 +164,12 @@ the script in all packages, use the `--no-select` option.
 ## Hooks
 
 Certain Melos commands support running scripts before and after the command is
-executed, as well as at other interstring points in the command's execution.
+executed, as well as at other interesting points in the command's execution.
 
 All commands that support hooks, support at least the `pre` and `post` hook.
 
 Hooks are configured in the `hooks` section of a command's configuration in the
-`melos.yaml` file.
+root `pubspec.yaml` file.
 
 ```yaml
 command:
@@ -156,3 +184,4 @@ Currently, the following Melos commands support hooks:
 - [`bootstrap`](/commands/bootstrap)
 - [`clean`](/commands/clean)
 - [`version`](/commands/version)
+- [`publish`](/commands/publish)

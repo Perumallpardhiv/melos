@@ -1,20 +1,3 @@
-/*
- * Copyright (c) 2016-present Invertase Limited & Contributors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this library except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
- */
-
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
@@ -131,7 +114,9 @@ class IntellijProject {
     String fileName, {
     String? templateCategory,
   }) async {
-    if (_cacheTemplates[fileName] != null) return _cacheTemplates[fileName]!;
+    if (_cacheTemplates[fileName] != null) {
+      return _cacheTemplates[fileName]!;
+    }
 
     String templatesRootPath;
     if (templateCategory != null) {
@@ -149,15 +134,17 @@ class IntellijProject {
   }
 
   String ideaModuleStringForName(String moduleName, {String? relativePath}) {
-    final imlPath = relativePath != null
-        ? '$relativePath/$moduleName.iml'
+    var imlPath = relativePath != null
+        ? p.normalize('$relativePath/$moduleName.iml')
         : '$moduleName.iml';
+    // Use `/` instead of `\` no matter what platform is.
+    imlPath = imlPath.replaceAll(r'\', '/');
     final module = '<module '
         'fileurl="file://\$PROJECT_DIR\$/$imlPath" '
         'filepath="\$PROJECT_DIR\$/$imlPath" '
         '/>';
-    // Pad to preserve formatting on generated file. Indent x6.
-    return '      $module';
+    // Pad to preserve formatting on generated file.
+    return module.padLeft(6);
   }
 
   Future<void> forceWriteToFile(String filePath, String fileContents) async {
@@ -278,6 +265,8 @@ class IntellijProject {
         'scriptName': scriptName,
         'scriptArgs': scriptArgs,
         'scriptPath': getMelosBinForIde(),
+        'executeInTerminal':
+            _workspace.config.ide.intelliJ.executeInTerminal.toString(),
       });
 
       final outputFile = p.join(
@@ -297,14 +286,19 @@ class IntellijProject {
     );
 
     await Future.forEach(_workspace.filteredPackages.values, (package) async {
-      if (!package.isFlutterApp) return;
+      if (!package.isFlutterApp) {
+        return;
+      }
 
-      final generatedRunConfiguration =
-          injectTemplateVariables(flutterTestTemplate, {
-        'flutterRunName': "Flutter Run -&gt; '${package.name}'",
-        'flutterRunMainDartPathRelative':
-            p.join(package.pathRelativeToWorkspace, 'lib', 'main.dart'),
-      });
+      final generatedRunConfiguration = injectTemplateVariables(
+        flutterTestTemplate,
+        {
+          'flutterRunName': "Flutter Run -&gt; '${package.name}'",
+          'flutterRunMainDartPathRelative': p
+              .join(package.pathRelativeToWorkspace, 'lib', 'main.dart')
+              .replaceAll(r'\', '/'),
+        },
+      );
       final outputFile = p.join(
         pathDotIdea,
         'runConfigurations',

@@ -1,20 +1,5 @@
-/*
- * Copyright (c) 2016-present Invertase Limited & Contributors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this library except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
- */
-
+import 'package:intl/intl.dart';
+import 'package:meta/meta.dart';
 import 'package:path/path.dart' as p;
 import 'package:pub_semver/pub_semver.dart';
 
@@ -110,9 +95,20 @@ extension MarkdownStringBufferExtension on StringBuffer {
 
 extension ChangelogStringBufferExtension on StringBuffer {
   void writePackageChangelog(MelosPendingPackageUpdate update) {
+    final config = update.workspace.config;
+    final includeDate = config.commands.version.includeDateInChangelogEntry;
+
     // Changelog entry header.
     write('## ');
-    writeln(update.nextVersion);
+    if (includeDate) {
+      final now = DateTime.now();
+
+      write(update.nextVersion);
+      write(' - ');
+      writeln(now.toFormattedString());
+    } else {
+      writeln(update.nextVersion);
+    }
     writeln();
 
     if (update.reason == PackageUpdateReason.dependency) {
@@ -194,6 +190,27 @@ extension ChangelogStringBufferExtension on StringBuffer {
         }
 
         writeln();
+
+        final version = update.workspace.config.commands.version;
+
+        if (!version.includeCommitBody) {
+          continue;
+        }
+        if (parsedMessage.body == null) {
+          continue;
+        }
+
+        final shouldWriteBody =
+            !version.commitBodyOnlyBreaking || parsedMessage.isBreakingChange;
+
+        if (shouldWriteBody) {
+          writeln();
+          for (final line in parsedMessage.body!.split('\n')) {
+            write(' ' * 4);
+            writeln(line);
+          }
+          writeln();
+        }
       }
       writeln();
     }
@@ -212,7 +229,9 @@ List<RichGitCommit> _filteredAndSortedCommits(
     final r = a.parsedMessage.isBreakingChange
         .toString()
         .compareTo(b.parsedMessage.isBreakingChange.toString());
-    if (r != 0) return r;
+    if (r != 0) {
+      return r;
+    }
     return b.parsedMessage.type!.compareTo(a.parsedMessage.type!);
   });
 
@@ -228,5 +247,14 @@ extension on String {
       final issueUrl = repository.issueUrl(match.group(1)!);
       return '[${match.group(0)}]($issueUrl)';
     });
+  }
+}
+
+extension DateTimeExt on DateTime {
+  /// Returns a formatted string in the format `yyyy-MM-dd`.
+  @internal
+  String toFormattedString() {
+    final format = DateFormat('yyyy-MM-dd');
+    return format.format(this);
   }
 }

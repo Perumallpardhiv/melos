@@ -8,7 +8,9 @@ mixin _RunMixin on _Melos {
     bool noSelect = false,
     List<String> extraArgs = const [],
   }) async {
-    if (config.scripts.keys.isEmpty) throw NoScriptException._();
+    if (config.scripts.keys.isEmpty) {
+      throw NoScriptException._();
+    }
 
     scriptName ??= await _pickScript(config);
     final script = config.scripts[scriptName];
@@ -20,8 +22,34 @@ mixin _RunMixin on _Melos {
       );
     }
 
-    final scriptSourceCode =
-        targetStyle(script.effectiveRun.replaceAll('\n', ''));
+    if (script.steps != null && script.steps!.isNotEmpty) {
+      if (script.exec != null) {
+        throw ScriptExecOptionsException._(
+          scriptName,
+        );
+      }
+
+      _detectRecursiveScriptCalls(script);
+
+      await _runMultipleScripts(
+        script,
+        global: global,
+        noSelect: noSelect,
+        scripts: config.scripts,
+        steps: script.steps!,
+      );
+      return;
+    }
+
+    if (script.run == null && script.exec is! String) {
+      throw MissingScriptCommandException._(
+        scriptName,
+      );
+    }
+
+    final scriptSourceCode = targetStyle(
+      script.command(extraArgs).join(' ').withoutTrailing('\n'),
+    );
 
     logger.command('melos run ${script.name}');
     logger.child(scriptSourceCode).child(runningLabel).newLine();
@@ -42,6 +70,36 @@ mixin _RunMixin on _Melos {
       throw ScriptException._(script.name);
     }
     resultLogger.child(successLabel);
+  }
+
+  /// Detects recursive script calls within the provided [script].
+  ///
+  /// This method recursively traverses the steps of the script to check
+  /// for any recursive calls. If a step calls another script that
+  /// eventually leads back to the original script, it indicates a
+  /// recursive script call, which can result in an infinite loop during
+  /// execution.
+  void _detectRecursiveScriptCalls(Script script) {
+    final visitedScripts = <String>{};
+
+    void traverseSteps(Script currentScript) {
+      visitedScripts.add(currentScript.name);
+
+      for (final step in currentScript.steps!) {
+        if (visitedScripts.contains(step)) {
+          throw RecursiveScriptCallException._(step);
+        }
+
+        final nestedScript = config.scripts[step];
+        if (nestedScript != null) {
+          traverseSteps(nestedScript);
+        }
+      }
+
+      visitedScripts.remove(currentScript.name);
+    }
+
+    traverseSteps(script);
   }
 
   Future<String> _pickScript(MelosWorkspaceConfig config) async {
@@ -79,22 +137,21 @@ mixin _RunMixin on _Melos {
     bool noSelect = false,
     List<String> extraArgs = const [],
   }) async {
-    final workspace = await MelosWorkspace.fromConfig(
-      config,
+    final workspace = await createWorkspace(
       global: global,
       packageFilters: script.packageFilters?.copyWithUpdatedIgnore([
         ...script.packageFilters!.ignore,
         ...config.ignore,
       ]),
-      logger: logger,
     )
       ..validate();
 
     final environment = {
-      'MELOS_ROOT_PATH': config.path,
-      if (workspace.sdkPath != null) envKeyMelosSdkPath: workspace.sdkPath!,
+      EnvironmentVariableKey.melosRootPath: config.path,
+      if (workspace.sdkPath != null)
+        EnvironmentVariableKey.melosSdkPath: workspace.sdkPath!,
       if (workspace.childProcessPath != null)
-        'PATH': workspace.childProcessPath!,
+        EnvironmentVariableKey.path: workspace.childProcessPath!,
       ...script.env,
     };
 
@@ -147,20 +204,97 @@ mixin _RunMixin on _Melos {
           ? packages.map((e) => e.name).toList().join(',')
           : packages[selectedPackageIndex - 1].name;
       // MELOS_PACKAGES environment is detected by melos itself when through
-      // a defined script, this comma delimited list of package names is used
-      // instead of any filters if detected.
-      environment[envKeyMelosPackages] = packagesEnv;
+      // a defined script, this comma delimited list of package names used to
+      // scope the `packageFilters` if it is present.
+      environment[EnvironmentVariableKey.melosPackages] = packagesEnv;
     }
 
-    final scriptSource = script.effectiveRun;
-    final scriptParts = scriptSource.split(' ');
-
     return startCommand(
-      scriptParts..addAll(extraArgs),
+      script.command(extraArgs),
       logger: logger,
       environment: environment,
       workingDirectory: config.path,
     );
+  }
+
+  Future<void> _runMultipleScripts(
+    Script script, {
+    required Scripts scripts,
+    required List<String> steps,
+    GlobalOptions? global,
+    bool noSelect = false,
+  }) async {
+    final workspace = await createWorkspace(
+      global: global,
+    )
+      ..validate();
+
+    final environment = {
+      EnvironmentVariableKey.melosRootPath: config.path,
+      if (workspace.sdkPath != null)
+        EnvironmentVariableKey.melosSdkPath: workspace.sdkPath!,
+      if (workspace.childProcessPath != null)
+        EnvironmentVariableKey.path: workspace.childProcessPath!,
+      ...script.env,
+    };
+
+    await _executeScriptSteps(steps, scripts, script, environment);
+  }
+
+  /// Checks if the given [step] is a recognized Melos command.
+  bool _isStepACommand(String step) {
+    // Split the step by spaces to separate the command from its flags/arguments.
+    final command = step.split(' ')[0];
+
+    const melosCommands = {
+      'format',
+      'bs',
+      'bootstrap',
+      'clean',
+      'list',
+      'publish',
+    };
+
+    return melosCommands.contains(command);
+  }
+
+  String _buildScriptCommand(String step, Scripts scripts) {
+    if (scripts.containsKey(step)) {
+      return 'melos run $step';
+    }
+
+    if (_isStepACommand(step)) {
+      return 'melos $step';
+    }
+
+    return step;
+  }
+
+  Future<void> _executeScriptSteps(
+    List<String> steps,
+    Scripts scripts,
+    Script script,
+    Map<String, String> environment,
+  ) async {
+    final shell = PersistentShell(
+      logger: logger,
+      workingDirectory: config.path,
+      environment: environment,
+    );
+
+    await shell.startShell();
+    logger.command('melos run ${script.name}');
+
+    for (final step in steps) {
+      final scriptCommand = _buildScriptCommand(step, scripts);
+
+      final shouldContinue = await shell.sendCommand(scriptCommand);
+      if (!shouldContinue) {
+        break;
+      }
+    }
+
+    await shell.stopShell();
   }
 }
 
@@ -173,7 +307,7 @@ class NoPackageFoundScriptException implements MelosException {
   @override
   String toString() {
     return 'NoPackageFoundScriptException: No package found that matches with '
-        'the filters defined in the melos.yaml for script $scriptName.';
+        'the filters defined in the pubspec.yaml for script $scriptName.';
   }
 }
 
@@ -187,7 +321,7 @@ class ScriptNotFoundException implements MelosException {
   String toString() {
     final builder = StringBuffer(
       'ScriptNotFoundException: The script $scriptName could not be found in '
-      "the 'melos.yaml' file.",
+      "the 'pubspec.yaml' file.",
     );
 
     for (final scriptName in availableScriptNames) {
@@ -203,8 +337,8 @@ class NoScriptException implements MelosException {
 
   @override
   String toString() {
-    return "NoScriptException: This workspace has no scripts defined in it's "
-        "'melos.yaml' file.";
+    return 'NoScriptException: This workspace has no scripts defined in its '
+        "'pubspec.yaml' file.";
   }
 }
 
@@ -215,5 +349,45 @@ class ScriptException implements MelosException {
   @override
   String toString() {
     return 'ScriptException: The script $scriptName failed to execute.';
+  }
+}
+
+class ScriptExecOptionsException implements MelosException {
+  ScriptExecOptionsException._(this.scriptName);
+  final String scriptName;
+
+  @override
+  String toString() {
+    return 'ScriptExecOptionsException: Execution options are not supported '
+        'for the script "$scriptName". Ensure the script is designed to run '
+        'with the provided options or consult the documentation for supported '
+        'scripts.';
+  }
+}
+
+class MissingScriptCommandException implements MelosException {
+  MissingScriptCommandException._(this.scriptName);
+  final String scriptName;
+
+  @override
+  String toString() {
+    return 'MissingScriptCommandException: The script $scriptName failed '
+        'to execute. You must specify a script to run. '
+        'This can be done by filling "run" with a command, '
+        'defining a sequence of commands in the "steps", '
+        'or by providing a script execution definition in the "exec".';
+  }
+}
+
+class RecursiveScriptCallException implements MelosException {
+  RecursiveScriptCallException._(this.scriptName);
+
+  final String scriptName;
+
+  @override
+  String toString() {
+    return 'RecursiveScriptCallException: Detected a recursive call in script '
+        'execution. The script "$scriptName" calls itself or forms a recursive '
+        'loop.';
   }
 }

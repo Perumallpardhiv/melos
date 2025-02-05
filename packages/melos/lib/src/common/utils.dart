@@ -1,20 +1,3 @@
-/*
- * Copyright (c) 2016-present Invertase Limited & Contributors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this library except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
- */
-
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -32,8 +15,8 @@ import 'package:yaml/yaml.dart';
 import '../logging.dart';
 import '../package.dart';
 import '../workspace.dart';
+import 'environment_variable_key.dart';
 import 'exception.dart';
-import 'io.dart';
 import 'platform.dart';
 
 const globalOptionVerbose = 'verbose';
@@ -42,6 +25,7 @@ const globalOptionSdkPath = 'sdk-path';
 const autoSdkPathOptionValue = 'auto';
 
 const filterOptionScope = 'scope';
+const filterOptionCategory = 'category';
 const filterOptionIgnore = 'ignore';
 const filterOptionDirExists = 'dir-exists';
 const filterOptionFileExists = 'file-exists';
@@ -56,15 +40,22 @@ const filterOptionNoDependsOn = 'no-depends-on';
 const filterOptionIncludeDependents = 'include-dependents';
 const filterOptionIncludeDependencies = 'include-dependencies';
 
+const publishOptionDryRun = 'dry-run';
+const publishOptionNoDryRun = 'no-dry-run';
+const publishOptionGitTagVersion = 'git-tag-version';
+const publishOptionNoGitTagVersion = 'no-git-tag-version';
+const publishOptionYes = 'yes';
+const publishOptionForce = 'force';
+
 extension Let<T> on T? {
   R? let<R>(R Function(T value) cb) {
-    if (this == null) return null;
+    if (this == null) {
+      return null;
+    }
 
     return cb(this as T);
   }
 }
-
-String describeEnum(Object value) => value.toString().split('.').last;
 
 /// Utility function to write inline multi-line strings with indentation and
 /// without trailing a new line.
@@ -78,20 +69,15 @@ String describeEnum(Object value) => value.toString().split('.').last;
 /// ```
 String multiLine(List<String> lines) => lines.join('\n');
 
-// MELOS_PACKAGES environment variable is a comma delimited list of
-// package names - used instead of filters if it is present.
-// This can be user defined or can come from package selection in `melos run`.
-const envKeyMelosPackages = 'MELOS_PACKAGES';
-
-const envKeyMelosSdkPath = 'MELOS_SDK_PATH';
-
-const envKeyMelosTerminalWidth = 'MELOS_TERMINAL_WIDTH';
-
 final melosPackageUri = Uri.parse('package:melos/melos.dart');
 
 final _camelCasedDelimiterRegExp = RegExp(r'[_\s-]+');
 
 extension StringUtils on String {
+  String addStepPrefixEmoji() {
+    return '➡️ step: $this';
+  }
+
   String indent(String indent) {
     final split = this.split('\n');
 
@@ -120,12 +106,16 @@ extension StringUtils on String {
   }
 
   String get capitalized {
-    if (isEmpty) return this;
+    if (isEmpty) {
+      return this;
+    }
     return '${this[0].toUpperCase()}${substring(1)}';
   }
 
   String get camelCased {
-    if (isEmpty) return this;
+    if (isEmpty) {
+      return this;
+    }
     var isFirstWord = true;
     return splitMapJoin(
       _camelCasedDelimiterRegExp,
@@ -142,9 +132,11 @@ extension StringUtils on String {
 }
 
 int get terminalWidth {
-  if (currentPlatform.environment.containsKey(envKeyMelosTerminalWidth)) {
+  if (currentPlatform.environment
+      .containsKey(EnvironmentVariableKey.melosTerminalWidth)) {
     return int.tryParse(
-          currentPlatform.environment[envKeyMelosTerminalWidth]!,
+          currentPlatform
+              .environment[EnvironmentVariableKey.melosTerminalWidth]!,
           radix: 10,
         ) ??
         80;
@@ -311,14 +303,8 @@ Future<String> getMelosRoot() async {
   return p.normalize('${melosPackageFileUri!.toFilePath()}/../..');
 }
 
-String melosYamlPathForDirectory(String directory) =>
-    p.join(directory, 'melos.yaml');
-
 String melosStatePathForDirectory(String directory) =>
     p.join(directory, '.melos');
-
-String melosOverridesYamlPathForDirectory(String directory) =>
-    p.join(directory, 'melos_overrides.yaml');
 
 String pubspecPathForDirectory(String directory) =>
     p.join(directory, 'pubspec.yaml');
@@ -356,10 +342,14 @@ String listAsPaddedTable(List<List<String>> table, {int paddingSize = 1}) {
       final colWidth = maxColumnSizes[i]! + paddingSize;
       final cellWidth = AnsiStyles.strip(column).length;
       var padding = colWidth - cellWidth;
-      if (padding < paddingSize) padding = paddingSize;
+      if (padding < paddingSize) {
+        padding = paddingSize;
+      }
 
       // last cell of the list, no need for padding
-      if (i + 1 >= row.length) padding = 0;
+      if (i + 1 >= row.length) {
+        padding = 0;
+      }
 
       rowBuffer.write('$column${List.filled(padding, ' ').join()}');
       i++;
@@ -430,12 +420,8 @@ String link(Uri url, String text) {
   }
 }
 
-/// Simple check to see if the [Directory] qualifies as a plugin repository.
-bool isWorkspaceDirectory(String directory) =>
-    fileExists(melosYamlPathForDirectory(directory));
-
 Future<Process> startCommandRaw(
-  String command, {
+  List<String> command, {
   String? workingDirectory,
   Map<String, String> environment = const {},
   bool includeParentEnvironment = true,
@@ -446,54 +432,37 @@ Future<Process> startCommandRaw(
   return Process.start(
     executable,
     currentPlatform.isWindows
-        ? ['/C', '%MELOS_SCRIPT%']
-        : ['-c', r'eval "$MELOS_SCRIPT"'],
+        ? ['/C', '%${EnvironmentVariableKey.melosScript}%']
+        : ['-c', 'eval "\$${EnvironmentVariableKey.melosScript}"'],
     workingDirectory: workingDirectory,
     environment: {
       ...environment,
-      envKeyMelosTerminalWidth: terminalWidth.toString(),
-      'MELOS_SCRIPT': command,
+      EnvironmentVariableKey.melosTerminalWidth: terminalWidth.toString(),
+      EnvironmentVariableKey.melosScript: command.join(' '),
     },
     includeParentEnvironment: includeParentEnvironment,
   );
 }
 
+final _runningPids = <int>[];
+
+List<int> get runningPids => UnmodifiableListView(_runningPids);
+
 Future<int> startCommand(
   List<String> command, {
-  String? prefix,
+  required MelosLogger logger,
+  String? logPrefix,
   Map<String, String> environment = const {},
   String? workingDirectory,
   bool onlyOutputOnError = false,
   bool includeParentEnvironment = true,
-  required MelosLogger logger,
+  String? group,
 }) async {
   final processedCommand = command
-      .map((arg) {
-        // Remove empty args.
-        if (arg.trim().isEmpty) {
-          return null;
-        }
-
-        // Attempt to make line continuations Windows & Linux compatible.
-        if (arg.trim() == r'\') {
-          return currentPlatform.isWindows ? arg.replaceAll(r'\', '^') : arg;
-        }
-        if (arg.trim() == '^') {
-          return currentPlatform.isWindows ? arg : arg.replaceAll('^', r'\');
-        }
-
-        // Inject MELOS_* variables if any.
-        environment.forEach((key, value) {
-          if (key.startsWith('MELOS_')) {
-            arg = arg.replaceAll('\$$key', value);
-            arg = arg.replaceAll(key, value);
-          }
-        });
-
-        return arg;
-      })
-      .where((element) => element != null)
-      .join(' ');
+      // Remove empty arguments.
+      .whereNot((argument) => argument.trim().isEmpty)
+      .map(_scriptArgumentFormatter(environment))
+      .toList();
 
   final process = await startCommandRaw(
     processedCommand,
@@ -502,17 +471,19 @@ Future<int> startCommand(
     includeParentEnvironment: includeParentEnvironment,
   );
 
+  _runningPids.add(process.pid);
+
   var stdoutStream = process.stdout;
   var stderrStream = process.stderr;
 
-  if (prefix != null && prefix.isNotEmpty) {
+  if (logPrefix != null && logPrefix.isNotEmpty) {
     final pluginPrefixTransformer =
         StreamTransformer<String, String>.fromHandlers(
       handleData: (data, sink) {
         const lineSplitter = LineSplitter();
         var lines = lineSplitter.convert(data);
         lines = lines
-            .map((line) => '$prefix$line${line.contains('\n') ? '' : '\n'}')
+            .map((line) => '$logPrefix$line${line.contains('\n') ? '' : '\n'}')
             .toList();
         sink.add(lines.join());
       },
@@ -538,7 +509,10 @@ Future<int> startCommand(
     (event) {
       processStdout.addAll(event);
       if (!onlyOutputOnError) {
-        logger.write(utf8.decode(event, allowMalformed: true));
+        logger.logWithoutNewLine(
+          utf8.decode(event, allowMalformed: true),
+          group: group,
+        );
       }
     },
     onDone: processStdoutCompleter.complete,
@@ -547,7 +521,7 @@ Future<int> startCommand(
     (event) {
       processStderr.addAll(event);
       if (!onlyOutputOnError) {
-        logger.stderr(utf8.decode(event, allowMalformed: true));
+        logger.error(utf8.decode(event, allowMalformed: true), group: group);
       }
     },
     onDone: processStderrCompleter.complete,
@@ -557,12 +531,48 @@ Future<int> startCommand(
   await processStderrCompleter.future;
   final exitCode = await process.exitCode;
 
+  _runningPids.remove(process.pid);
+
   if (onlyOutputOnError && exitCode > 0) {
-    logger.stdout(utf8.decode(processStdout, allowMalformed: true));
-    logger.stderr(utf8.decode(processStderr, allowMalformed: true));
+    logger.log(
+      utf8.decode(processStdout, allowMalformed: true),
+      group: group,
+    );
+    logger.error(
+      utf8.decode(processStderr, allowMalformed: true),
+      group: group,
+    );
   }
 
   return exitCode;
+}
+
+String Function(String) _scriptArgumentFormatter(
+  Map<String, String> environment,
+) {
+  return (argument) {
+    // Attempt to make line continuations Windows & Linux compatible.
+    if (argument.trim() == r'\') {
+      return currentPlatform.isWindows
+          ? argument.replaceAll(r'\', '^')
+          : argument;
+    }
+    if (argument.trim() == '^') {
+      return currentPlatform.isWindows
+          ? argument
+          : argument.replaceAll('^', r'\');
+    }
+
+    // Inject MELOS_* variables if any.
+    environment.forEach((key, value) {
+      if (key.startsWith('MELOS_')) {
+        argument = argument.replaceAll('\$$key', value);
+        argument = argument.replaceAll(key, value);
+      }
+    });
+
+    return argument;
+  };
 }
 
 bool isPubSubcommand({required MelosWorkspace workspace}) {
@@ -587,10 +597,10 @@ bool isPubSubcommand({required MelosWorkspace workspace}) {
 void sortPackagesForPublishing(List<Package> packages) {
   final packageNames = packages.map((package) => package.name).toList();
   final graph = <String, Iterable<String>>{
-    for (var package in packages)
+    for (final package in packages)
       package.name: [
         ...package.dependencies.where(packageNames.contains),
-        ...package.devDependencies.where(packageNames.contains)
+        ...package.devDependencies.where(packageNames.contains),
       ],
   };
   final ordered =
@@ -634,7 +644,8 @@ List<List<Package>> findCyclicDependenciesInWorkspace(List<Package> packages) {
 /// / dart pub / flutter pub.
 ///
 /// Takes into account a potential sdk path being provided. If no sdk path is
-/// provided then it will assume to use the pub command available in PATH.
+/// provided then it will assume to use the pub command available in
+/// [EnvironmentVariableKey.path].
 List<String> pubCommandExecArgs({
   required bool useFlutter,
   required MelosWorkspace workspace,

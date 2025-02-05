@@ -4,21 +4,28 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:ansi_styles/ansi_styles.dart';
+import 'package:async/async.dart';
 import 'package:cli_util/cli_logging.dart';
 import 'package:collection/collection.dart';
 import 'package:file/local.dart';
+import 'package:glob/glob.dart';
 import 'package:meta/meta.dart';
 import 'package:mustache_template/mustache.dart';
 import 'package:path/path.dart' as p;
 import 'package:pool/pool.dart';
 import 'package:pub_semver/pub_semver.dart';
-import 'package:pubspec/pubspec.dart';
+import 'package:pubspec_parse/pubspec_parse.dart';
 import 'package:yaml/yaml.dart';
 import 'package:yaml_edit/yaml_edit.dart';
 
+import '../../version.g.dart';
+import '../command_configs/command_configs.dart';
 import '../command_runner/version.dart';
 import '../common/aggregate_changelog.dart';
+import '../common/environment_variable_key.dart';
 import '../common/exception.dart';
+import '../common/extensions/dependency.dart';
+import '../common/extensions/environment.dart';
 import '../common/git.dart';
 import '../common/git_commit.dart';
 import '../common/git_repository.dart';
@@ -26,30 +33,36 @@ import '../common/glob.dart';
 import '../common/intellij_project.dart';
 import '../common/io.dart';
 import '../common/pending_package_update.dart';
+import '../common/persistent_shell.dart';
 import '../common/platform.dart';
+import '../common/pubspec_overrides.dart';
 import '../common/utils.dart' as utils;
 import '../common/utils.dart';
-import '../common/versioning.dart';
 import '../common/versioning.dart' as versioning;
+import '../common/versioning.dart';
 import '../global_options.dart';
+import '../lifecycle_hooks/lifecycle_hooks.dart';
 import '../logging.dart';
 import '../package.dart';
 import '../scripts.dart';
 import '../workspace.dart';
-import '../workspace_configs.dart';
+import '../workspace_config.dart';
 
 part 'bootstrap.dart';
 part 'clean.dart';
 part 'exec.dart';
+part 'format.dart';
+part 'init.dart';
 part 'list.dart';
 part 'publish.dart';
 part 'run.dart';
 part 'version.dart';
 
-enum _CommandWithLifecycle {
+enum CommandWithLifecycle {
   bootstrap,
   clean,
   version,
+  publish,
 }
 
 class Melos extends _Melos
@@ -60,7 +73,9 @@ class Melos extends _Melos
         _RunMixin,
         _ExecMixin,
         _VersionMixin,
-        _PublishMixin {
+        _PublishMixin,
+        _FormatMixin,
+        _InitMixin {
   Melos({
     required this.config,
     Logger? logger,
@@ -82,19 +97,23 @@ abstract class _Melos {
   }) async {
     var filterWithEnv = packageFilters;
 
-    if (currentPlatform.environment.containsKey(envKeyMelosPackages)) {
+    if (currentPlatform.environment
+        .containsKey(EnvironmentVariableKey.melosPackages)) {
       // MELOS_PACKAGES environment variable is a comma delimited list of
-      // package names - used instead of filters if it is present.
+      // package names - used to scope the `packageFilters` if it is present.
       // This can be user defined or can come from package selection in
       // `melos run`.
-      filterWithEnv = PackageFilters(
-        scope: currentPlatform.environment[envKeyMelosPackages]!
-            .split(',')
-            .map(
-              (e) => createGlob(e, currentDirectoryPath: config.path),
-            )
-            .toList(),
-      );
+      final filteredPackagesScopeFromEnv =
+          currentPlatform.environment[EnvironmentVariableKey.melosPackages]!
+              .split(',')
+              .map(
+                (e) => createGlob(e, currentDirectoryPath: config.path),
+              )
+              .toList();
+
+      filterWithEnv = packageFilters == null
+          ? PackageFilters(scope: filteredPackagesScopeFromEnv)
+          : packageFilters.copyWith(scope: filteredPackagesScopeFromEnv);
     }
 
     return (await MelosWorkspace.fromConfig(
@@ -108,8 +127,8 @@ abstract class _Melos {
 
   Future<void> _runLifecycle(
     MelosWorkspace workspace,
-    _CommandWithLifecycle command,
-    FutureOr<void> Function() cb,
+    CommandWithLifecycle command,
+    FutureOr<void> Function() callback,
   ) async {
     final hooks = workspace.config.commands.lifecycleHooksFor(command);
     final preScript = hooks.pre;
@@ -121,7 +140,7 @@ abstract class _Melos {
     }
 
     try {
-      await cb();
+      await callback();
     } finally {
       if (postScript != null) {
         logger.newLine();
@@ -132,11 +151,11 @@ abstract class _Melos {
 
   Future<void> _runLifecycleScript(
     Script script, {
-    required _CommandWithLifecycle command,
+    required CommandWithLifecycle command,
   }) async {
     logger
       ..command('melos ${command.name} [${script.name}]')
-      ..child(targetStyle(script.effectiveRun.replaceAll('\n', '')))
+      ..child(targetStyle(script.command().join(' ').replaceAll('\n', '')))
       ..newLine();
 
     final exitCode = await _runScript(script, noSelect: true);
@@ -158,14 +177,16 @@ abstract class _Melos {
 }
 
 extension _ResolveLifecycleHooks on CommandConfigs {
-  LifecycleHooks lifecycleHooksFor(_CommandWithLifecycle command) {
+  LifecycleHooks lifecycleHooksFor(CommandWithLifecycle command) {
     switch (command) {
-      case _CommandWithLifecycle.bootstrap:
+      case CommandWithLifecycle.bootstrap:
         return bootstrap.hooks;
-      case _CommandWithLifecycle.clean:
+      case CommandWithLifecycle.clean:
         return clean.hooks;
-      case _CommandWithLifecycle.version:
+      case CommandWithLifecycle.version:
         return version.hooks;
+      case CommandWithLifecycle.publish:
+        return publish.hooks;
     }
   }
 }
